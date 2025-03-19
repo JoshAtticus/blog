@@ -1,0 +1,38 @@
+body {
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  color: #333;
+}
+
+a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+header h1 a {
+  color: #333;
+  text-decoration: none;
+}
+
+article {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.date {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.post-preview {
+  margin-bottom: 2rem;
+}
