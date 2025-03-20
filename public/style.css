@@ -5,6 +5,8 @@ body {
   margin: 0 auto;
   padding: 2rem;
   color: #333;
+  background-color: #fff;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 a {
@@ -35,4 +37,62 @@ article {
 
 .post-preview {
   margin-bottom: 2rem;
+}
+
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #121212;
+    color: #e0e0e0;
+  }
+  
+  a {
+    color: #4dabf7;
+  }
+  
+  header h1 a {
+    color: #e0e0e0;
+  }
+  
+  article {
+    border-bottom: 1px solid #333;
+  }
+  
+  .date {
+    color: #aaa;
+  }
+}
+
+/* Dark mode toggle button */
+.theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+/* Manual dark mode class */
+body.dark-mode {
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+body.dark-mode a {
+  color: #4dabf7;
+}
+
+body.dark-mode header h1 a {
+  color: #e0e0e0;
+}
+
+body.dark-mode article {
+  border-bottom: 1px solid #333;
+}
+
+body.dark-mode .date {
+  color: #aaa;
 }

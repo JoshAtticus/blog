@@ -9,7 +9,7 @@ os.makedirs('public/posts', exist_ok=True)
 if os.path.exists('style.css'):
     shutil.copy('style.css', 'public/')
 
-# Post template
+# Post template with dark mode toggle and comments
 POST_TEMPLATE = '''<!DOCTYPE html>
 <html>
 <head>
@@ -21,6 +21,7 @@ POST_TEMPLATE = '''<!DOCTYPE html>
 <body>
   <header>
     <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
   </header>
   <main>
     <article>
@@ -29,9 +30,49 @@ POST_TEMPLATE = '''<!DOCTYPE html>
       <div class="content">
         {content}
       </div>
+      
+      <div class="comments">
+        <h2>Comments</h2>
+        <script src="https://utteranc.es/client.js"
+                repo="JoshAtticus/blog"
+                issue-term="title"
+                label="comment-thread"
+                theme="preferred-color-scheme"
+                crossorigin="anonymous"
+                async>
+        </script>
+      </div>
     </article>
   </main>
-  <footer>© {year} </footer>
+  <footer>© {year} JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check for saved theme preference or use system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+      themeToggle.textContent = '☀️';
+    } else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }
+    
+    // Theme toggle button
+    themeToggle.addEventListener('click', () => {
+      if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }
+    });
+  </script>
 </body>
 </html>'''
 
@@ -104,6 +145,7 @@ index_html = '''<!DOCTYPE html>
 <body>
   <header>
     <h1>JoshAtticus Blog</h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
   </header>
   <main>
     <div class="post-list">
@@ -121,7 +163,35 @@ for post in posts:
 index_html += '''
     </div>
   </main>
-  <footer>© ''' + str(datetime.now().year) + ''' JoshAtticus Blog</footer>
+  <footer>© ''' + str(datetime.now().year) + ''' JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check for saved theme preference or use system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+      themeToggle.textContent = '☀️';
+    } else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }
+    
+    // Theme toggle button
+    themeToggle.addEventListener('click', () => {
+      if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }
+    });
+  </script>
 </body>
 </html>'''
 
