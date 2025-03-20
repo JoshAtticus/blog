@@ -2,8 +2,8 @@
 title: A week with iOS 17 + watchOS 10
 date: 2023-08-26
 ---
+![Example Image](assets/ios17-watchos10.png)
 
-# A week with iOS 17 + watchOS 10
 I'm generally a hardcore Android fan, switching to Android a few months ago. I love using my Galaxy S9 on Evolution X with my Google Pixel Watch, but with iOS 17 and watchOS 10 public release just around the corner, I thought I'd try out the iOS 17 and watchOS 10 developer betas.
 
 During my week with iOS 17 and watchOS 10, I'll be using my 128GB iPhone 12 with my GPS+Cellular 40mm Apple Watch SE 2nd Gen.

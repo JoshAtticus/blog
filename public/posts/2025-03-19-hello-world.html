@@ -5,17 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hello World | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
+  <style>
+    /* Image handling in posts */
+    .content img {
+      max-width: 100%;
+      max-height: 400px; /* Smaller max height */
+      height: auto;
+      display: block;
+      margin: 1rem 0;
+    }
+    
+    /* Create image gallery for consecutive images */
+    .content p:has(img) + p:has(img) {
+      display: inline-block;
+      vertical-align: top;
+      margin-right: 1rem;
+    }
+    
+    /* Adjust consecutive images to display side by side */
+    .content p:has(img) + p:has(img) img {
+      max-height: 300px;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
   </header>
   <main>
     <article>
       <h1>Hello World</h1>
       <div class="date">2025-03-19</div>
       <div class="content">
-        <h1>Hello World!</h1>
+        <p><img alt="Example Image" src="../assets/DSCF2079.JPG" /></p>
 <p>This is my first blog post on my new blog. It's written in <strong>Markdown</strong> which makes it super easy to add:</p>
 <ul>
 <li>Lists</li>
@@ -24,8 +48,48 @@
 </ul>
 <p>And it's all automatically converted to HTML!</p>
       </div>
+      
+      <div class="comments">
+        <h2>Comments</h2>
+        <script src="https://utteranc.es/client.js"
+                repo="JoshAtticus/blog"
+                issue-term="title"
+                label="comment-thread"
+                theme="preferred-color-scheme"
+                crossorigin="anonymous"
+                async>
+        </script>
+      </div>
     </article>
   </main>
-  <footer>© 2025 </footer>
+  <footer>© 2025 JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check for saved theme preference or use system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+  document.body.classList.add('dark-mode');
+  themeToggle.textContent = '☀️';
+} else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }
+    
+    // Theme toggle button
+    themeToggle.addEventListener('click', () => {
+      if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }
+    });
+  </script>
 </body>
 </html>

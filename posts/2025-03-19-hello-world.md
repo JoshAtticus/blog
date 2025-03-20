@@ -2,8 +2,7 @@
 title: Hello World
 date: 2025-03-19
 ---
-
-# Hello World!
+![Example Image](assets/DSCF2079.JPG)
 
 This is my first blog post on my new blog. It's written in **Markdown** which makes it super easy to add:
 

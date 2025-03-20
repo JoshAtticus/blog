@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WearOS 5.1 for Pixel Watches | JoshAtticus Blog</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    /* Image handling in posts */
+    .content img {
+      max-width: 100%;
+      max-height: 400px; /* Smaller max height */
+      height: auto;
+      display: block;
+      margin: 1rem 0;
+    }
+    
+    /* Create image gallery for consecutive images */
+    .content p:has(img) + p:has(img) {
+      display: inline-block;
+      vertical-align: top;
+      margin-right: 1rem;
+    }
+    
+    /* Adjust consecutive images to display side by side */
+    .content p:has(img) + p:has(img) img {
+      max-height: 300px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
+  </header>
+  <main>
+    <article>
+      <h1>WearOS 5.1 for Pixel Watches</h1>
+      <div class="date">2025-03-20</div>
+      <div class="content">
+        <p><img alt="Example Image" src="../assets/PXL_20250320_105958162.jpg" /></p>
+<p>WearOS 5.1 has finally arrived for Pixel Watch first generations like mine! With it comes some much needed features &amp; fixes including a big bug introduced 4 months ago back in November and Android 15!</p>
+<h2>Features</h2>
+<p>The only noticeable features that instantly popped out to me are modes (consolidating Bedtime, Cinema and Do Not Disturb modes into one place, but weirdly not in the control panel) and the new passwords section in settings</p>
+<p><img alt="Modes in Settings" src="../assets/screenshot-2025-03-20-19-04-52.png" /><img alt="Modes in Settings" src="../assets/screenshot-2025-03-20-19-05-10.png" /><img alt="Passwords in Settings" src="../assets/screenshot-2025-03-20-19-05-35.png" /><img alt="Passwords in Settings" src="../assets/screenshot-2025-03-20-19-05-48.png" /></p>
+<p>WearOS 5.1 brings more than just those though, it's also supposedly bringing a more accurate step counter "for algorithm for jogging with a stroller, pushing a shopping cart or wheelchair, and hiking with poles", upgrades to media controls with control based on the type of content playing, like Android has already had for quite a bit now, such as in podcasts within YouTube Music, and the newer Pixel Watch 2 &amp; 3 watches are getting automatic bedtime mode, while the Pixel Watch 3 gets loss of pulse detection in the US arriving later this month.</p>
+<h2>Big fixes</h2>
+<p>WearOS 5.1 fixes a MAJOR bug in WearOS for 1st generation Pixel Watches, the font. In November, they broke the Google Sans font, causing it to use Roboto instead. This has FINALLY been fixed and Google Sans looks <em>so much</em> better than Roboto</p>
+<p><img alt="Google Sans on WearOS 5.1" src="../assets/screenshot-2025-03-20-19-13-29.png" /></p>
+      </div>
+      
+      <div class="comments">
+        <h2>Comments</h2>
+        <script src="https://utteranc.es/client.js"
+                repo="JoshAtticus/blog"
+                issue-term="title"
+                label="comment-thread"
+                theme="preferred-color-scheme"
+                crossorigin="anonymous"
+                async>
+        </script>
+      </div>
+    </article>
+  </main>
+  <footer>© 2025 JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check for saved theme preference or use system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+  document.body.classList.add('dark-mode');
+  themeToggle.textContent = '☀️';
+} else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }
+    
+    // Theme toggle button
+    themeToggle.addEventListener('click', () => {
+      if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }
+    });
+  </script>
+</body>
+</html>

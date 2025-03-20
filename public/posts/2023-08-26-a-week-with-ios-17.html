@@ -5,17 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A week with iOS 17 + watchOS 10 | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
+  <style>
+    /* Image handling in posts */
+    .content img {
+      max-width: 100%;
+      max-height: 400px; /* Smaller max height */
+      height: auto;
+      display: block;
+      margin: 1rem 0;
+    }
+    
+    /* Create image gallery for consecutive images */
+    .content p:has(img) + p:has(img) {
+      display: inline-block;
+      vertical-align: top;
+      margin-right: 1rem;
+    }
+    
+    /* Adjust consecutive images to display side by side */
+    .content p:has(img) + p:has(img) img {
+      max-height: 300px;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
   </header>
   <main>
     <article>
       <h1>A week with iOS 17 + watchOS 10</h1>
       <div class="date">2023-08-26</div>
       <div class="content">
-        <h1>A week with iOS 17 + watchOS 10</h1>
+        <p><img alt="Example Image" src="../assets/ios17-watchos10.png" /></p>
 <p>I'm generally a hardcore Android fan, switching to Android a few months ago. I love using my Galaxy S9 on Evolution X with my Google Pixel Watch, but with iOS 17 and watchOS 10 public release just around the corner, I thought I'd try out the iOS 17 and watchOS 10 developer betas.</p>
 <p>During my week with iOS 17 and watchOS 10, I'll be using my 128GB iPhone 12 with my GPS+Cellular 40mm Apple Watch SE 2nd Gen.</p>
 <h2>First Impressions</h2>
@@ -60,8 +84,48 @@
 <p>At the end of the week, iOS 17 and watchOS 10 were pleasant to use, and were much more stable then their predeccesors, iOS 16 and watchOS 9, despite being Developer Betas, which were supposedly "less stable" than iOS 16 and watchOS 9 due to not being fully tested. The new features are a nice addition to the Apple experience, however I won't be fully switching to iOS any time soon.</p>
 <p>I'd rate this year's new iOS updates as <strong>3/5 🌕🌕🌕🌑🌑</strong> compared to Android 13 and <strong>4/5 🌕🌕🌕🌕🌑</strong> compared to iOS 16.</p>
       </div>
+      
+      <div class="comments">
+        <h2>Comments</h2>
+        <script src="https://utteranc.es/client.js"
+                repo="JoshAtticus/blog"
+                issue-term="title"
+                label="comment-thread"
+                theme="preferred-color-scheme"
+                crossorigin="anonymous"
+                async>
+        </script>
+      </div>
     </article>
   </main>
-  <footer>© 2025 </footer>
+  <footer>© 2025 JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check for saved theme preference or use system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+  document.body.classList.add('dark-mode');
+  themeToggle.textContent = '☀️';
+} else if (savedTheme === 'light') {
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }
+    
+    // Theme toggle button
+    themeToggle.addEventListener('click', () => {
+      if (document.body.classList.contains('dark-mode')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      } else {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }
+    });
+  </script>
 </body>
 </html>
