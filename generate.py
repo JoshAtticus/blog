@@ -3,6 +3,64 @@ import markdown
 import shutil
 import re
 from datetime import datetime
+from PIL import Image  # Add this import
+import io
+
+# Image compression settings
+COMPRESSION_QUALITY = 85  # 0-100, higher is better quality but larger file size
+MAX_IMAGE_WIDTH = 1200    # Max width in pixels, height will scale proportionally
+
+def compress_image(input_path, output_path, quality=COMPRESSION_QUALITY, max_width=MAX_IMAGE_WIDTH):
+    """Compress an image file and save it to the output path."""
+    try:
+        # Check if the file is an image
+        if not input_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+            # Not an image, just copy
+            shutil.copy2(input_path, output_path)
+            return False
+            
+        # Open the image
+        img = Image.open(input_path)
+        
+        # Resize if larger than max_width
+        if img.width > max_width:
+            ratio = max_width / img.width
+            new_height = int(img.height * ratio)
+            img = img.resize((max_width, new_height), Image.LANCZOS)
+        
+        # Save with compression
+        img.save(output_path, optimize=True, quality=quality)
+        
+        print(f"Compressed: {input_path}")
+        return True
+    except Exception as e:
+        print(f"Error compressing {input_path}: {e}")
+        # If compression fails, just copy the original
+        if os.path.exists(input_path):
+            shutil.copy2(input_path, output_path)
+        return False
+
+def copy_with_compression(src_dir, dest_dir):
+    """Copy directory tree with image compression."""
+    os.makedirs(dest_dir, exist_ok=True)
+    
+    # Get all files in source directory and subdirectories
+    for root, _, files in os.walk(src_dir):
+        # Get the corresponding destination directory
+        rel_path = os.path.relpath(root, src_dir)
+        dest_path = os.path.join(dest_dir, rel_path)
+        
+        # Create the destination directory if it doesn't exist
+        os.makedirs(dest_path, exist_ok=True)
+        
+        # Copy each file
+        for file in files:
+            src_file = os.path.join(root, file)
+            dest_file = os.path.join(dest_path, file)
+            
+            # Compress if it's an image, otherwise just copy
+            if not compress_image(src_file, dest_file):
+                shutil.copy2(src_file, dest_file)
 
 # Setup directories
 os.makedirs("public/posts", exist_ok=True)
@@ -12,7 +70,7 @@ if os.path.exists("style.css"):
 assets_src = os.path.join("posts", "assets")
 assets_dest = os.path.join("public", "assets")
 if os.path.isdir(assets_src):
-    shutil.copytree(assets_src, assets_dest, dirs_exist_ok=True)
+    copy_with_compression(assets_src, assets_dest)
 
 # Post template with dark mode toggle and comments
 POST_TEMPLATE = """<!DOCTYPE html>
@@ -186,11 +244,10 @@ for filename in os.listdir("posts"):
             f.write(post_html)
 
         # If an assets folder exists for this post, copy it to the public/posts folder.
-        # Using the naming convention: [postname]-assets
         post_assets_source = os.path.join("posts", os.path.splitext(filename)[0] + "-assets")
         if os.path.isdir(post_assets_source):
             post_assets_dest = os.path.join("public", "posts", os.path.splitext(filename)[0] + "-assets")
-            shutil.copytree(post_assets_source, post_assets_dest, dirs_exist_ok=True)
+            copy_with_compression(post_assets_source, post_assets_dest)
 
         posts.append(
             {
