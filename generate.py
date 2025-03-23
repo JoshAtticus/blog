@@ -191,6 +191,170 @@ def fix_image_paths_for_posts(html_content):
     fixed_html = re.sub(r'src=["\']assets/', r'src="../assets/', html_content)
     return fixed_html
 
+def parse_custom_widgets(content):
+    # Parse [Review] blocks
+    review_pattern = re.compile(r"\[Review\](.*?)\[/Review\]", re.DOTALL)
+    content = review_pattern.sub(render_review_widget, content)
+
+    # Parse [Summary] blocks
+    summary_pattern = re.compile(r"\[Summary\](.*?)\[/Summary\]", re.DOTALL)
+    content = summary_pattern.sub(render_summary_widget, content)
+
+    return content
+
+def render_review_widget(match):
+    # Extract review details
+    review_data = parse_key_value_block(match.group(1))
+    
+    # Format rating as stars
+    rating = float(review_data['ratingOutOf5'])
+    stars = '★' * int(rating) + '☆' * (5 - int(rating))
+    
+    return f"""
+    <div class="review-widget">
+        <div class="review-header">
+            <h2>{review_data['productName']}</h2>
+            <div class="rating">{stars} ({review_data['ratingOutOf5']}/5)</div>
+        </div>
+        
+        <p class="review-summary">{review_data['reviewSummary']}</p>
+        
+        <div class="review-grid">
+            <div class="review-section">
+                <h3>Pros</h3>
+                <ul>
+                    {' '.join(f'<li>{pro}</li>' for pro in review_data['pros'])}
+                </ul>
+            </div>
+            <div class="review-section">
+                <h3>Cons</h3>
+                <ul>
+                    {' '.join(f'<li>{con}</li>' for con in review_data['cons'])}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="review-grid">
+            <div class="review-section">
+                <h3>Price</h3>
+                <p>{review_data['price']}</p>
+            </div>
+            <div class="review-section">
+                <h3>Recommended</h3>
+                <p>{"Yes" if review_data['isRecommended'] else "No"}</p>
+            </div>
+        </div>
+        
+        <a href="{review_data['URL']}" target="_blank" class="review-cta">Buy Now</a>
+    </div>
+    """
+
+def render_summary_widget(match):
+    # Extract summary details
+    summary_data = parse_key_value_block(match.group(1))
+    return f"""
+    <div class="summary-widget">
+        <h2>Summary</h2>
+        <p>{summary_data['content']}</p>
+    </div>
+    """
+
+def parse_key_value_block(block):
+    # Parse key-value pairs from a block
+    lines = block.strip().split("\n")
+    data = {}
+    for line in lines:
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = eval(value.strip())  # Convert to appropriate type (e.g., list, string)
+        data[key] = value
+    return data
+
+# Function to process custom widgets after HTML conversion
+def process_custom_widgets_in_html(html_content):
+    # Look for Summary widget markers in the HTML
+    summary_pattern = re.compile(r'<p>\[Summary\](.*?)\[/Summary\]</p>', re.DOTALL)
+    html_content = summary_pattern.sub(process_summary_widget, html_content)
+    
+    # Look for Review widget markers in the HTML
+    review_pattern = re.compile(r'<p>\[Review\](.*?)\[/Review\]</p>', re.DOTALL)
+    html_content = review_pattern.sub(process_review_widget, html_content)
+    
+    return html_content
+
+def process_summary_widget(match):
+    # Extract the content between the tags
+    inner_content = match.group(1).strip()
+    
+    # Extract the summary content
+    content_match = re.search(r'content:\s*"([^"]*)"', inner_content)
+    if not content_match:
+        return "<div class='error'>Invalid summary format</div>"
+    
+    summary_content = content_match.group(1)
+    
+    # Generate HTML for the summary widget
+    return f"""
+    <div class="summary-widget">
+        <h2>Summary</h2>
+        <p>{summary_content}</p>
+    </div>
+    """
+
+def process_review_widget(match):
+    # Extract the content between the tags
+    inner_content = match.group(1).strip()
+    
+    # Extract review details with regex
+    product_match = re.search(r'productName:\s*"([^"]*)"', inner_content)
+    summary_match = re.search(r'reviewSummary:\s*"([^"]*)"', inner_content)
+    rating_match = re.search(r'ratingOutOf5:\s*([\d\.]+)', inner_content)
+    pros_match = re.search(r'pros:\s*\["([^"]*)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\]', inner_content)
+    cons_match = re.search(r'cons:\s*\["([^"]*)"(?:,\s*"([^"]*)")?\]', inner_content)
+    recommended_match = re.search(r'isRecommended:\s*(true|false)', inner_content)
+    price_match = re.search(r'price:\s*"([^"]*)"', inner_content)
+    url_match = re.search(r'URL:\s*"([^"]*)"', inner_content)
+    
+    # Handle missing data
+    if not all([product_match, summary_match, rating_match, price_match, url_match]):
+        return "<div class='error'>Invalid review format</div>"
+    
+    # Extract values
+    product_name = product_match.group(1)
+    summary = summary_match.group(1)
+    rating = rating_match.group(1)
+    price = price_match.group(1)
+    url = url_match.group(1)
+    
+    # Handle optional arrays
+    pros = []
+    if pros_match:
+        for i in range(1, 4):
+            if pros_match.group(i):
+                pros.append(pros_match.group(i))
+    
+    cons = []
+    if cons_match:
+        for i in range(1, 3):
+            if cons_match.group(i):
+                cons.append(cons_match.group(i))
+    
+    recommended = "Yes" if recommended_match and recommended_match.group(1) == "true" else "No"
+    
+    # Generate HTML for the review widget
+    return f"""
+    <div class="review-widget">
+        <h2>{product_name} Review</h2>
+        <p>{summary}</p>
+        <p><strong>Rating:</strong> {rating} / 5</p>
+        <p><strong>Pros:</strong> {', '.join(pros)}</p>
+        <p><strong>Cons:</strong> {', '.join(cons)}</p>
+        <p><strong>Price:</strong> {price}</p>
+        <p><strong>Recommended:</strong> {recommended}</p>
+        <a href="{url}" target="_blank">Buy Now</a>
+    </div>
+    """
+
 # Process all markdown posts
 posts = []
 for filename in os.listdir("posts"):
@@ -215,8 +379,11 @@ for filename in os.listdir("posts"):
         # Remove Markdown headers that might be at the start
         content_for_summary = re.sub(r"^#+ .*?\n", "", content, flags=re.MULTILINE)
 
-        # Convert markdown to HTML
-        html_content = markdown.markdown(content)
+        # Convert markdown to HTML first
+        html_content = markdown.markdown(content, extensions=['extra'], output_format='html5')
+        
+        # Process custom widgets AFTER HTML conversion
+        html_content = process_custom_widgets_in_html(html_content)
         
         # Extract the first image URL before fixing paths for preview purposes
         first_image = extract_first_image(html_content)
@@ -262,9 +429,101 @@ for filename in os.listdir("posts"):
                 "image": first_image,
             }
         )
+        
+def generate_index_page(posts, page_num, has_next_page):
+    """Generate HTML for an index page with a list of posts."""
+    page_html = """<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JoshAtticus Blog - Page {}</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="index.html">JoshAtticus Blog</a></h1>
+    <button class="theme-toggle" id="theme-toggle">🌓</button>
+  </header>
+  <main>
+    <div class="post-list">
+""".format(page_num)
+
+    for post in posts:
+        image_html = ""
+        if post.get("image"):
+            image_html = f'<div class="post-image"><img src="{post["image"]}" alt="{post["title"]} featured image"></div>'
+
+        page_html += f"""
+      <article class="post-preview">
+        <h2><a href="posts/{post['filename']}">{post['title']}</a></h2>
+        <div class="date">{post['date']}</div>
+        <div class="post-content">
+          <div class="summary">{post['summary']}</div>
+          {image_html}
+        </div>
+      </article>
+    """
+
+    page_html += """
+    </div>
+    <nav class="pagination">
+    """
+
+    # Add pagination links
+    if page_num > 1:
+        prev_page = "index.html" if page_num == 2 else f"index-{page_num - 1}.html"
+        page_html += f'<a href="{prev_page}" class="prev">Previous</a>'
+
+    if has_next_page:
+        next_page = f"index-{page_num + 1}.html"
+        page_html += f'<a href="{next_page}" class="next">Next</a>'
+
+    page_html += """
+    </nav>
+  </main>
+  <footer>© {} JoshAtticus</footer>
+  
+  <script>
+    // Dark mode toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {{
+      document.body.classList.add('dark-mode');
+      themeToggle.textContent = '☀️';
+    }} else if (savedTheme === 'light') {{
+      document.body.classList.remove('dark-mode');
+      themeToggle.textContent = '🌙';
+    }}
+    themeToggle.addEventListener('click', () => {{
+      if (document.body.classList.contains('dark-mode')) {{
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeToggle.textContent = '🌙';
+      }} else {{
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeToggle.textContent = '☀️';
+      }}
+    }});
+  </script>
+</body>
+</html>
+""".format(datetime.now().year)
+
+    return page_html
 
 # Sort posts by date (newest first)
 posts.sort(key=lambda x: x["date"], reverse=True)
+
+POSTS_PER_PAGE = 15
+
+# Generate paginated index pages
+for page_num, start_idx in enumerate(range(0, len(posts), POSTS_PER_PAGE), start=1):
+    paginated_posts = posts[start_idx:start_idx + POSTS_PER_PAGE]
+    page_html = generate_index_page(paginated_posts, page_num, len(posts) > start_idx + POSTS_PER_PAGE)
+    with open(f"public/index{'' if page_num == 1 else f'-{page_num}'}.html", "w", encoding="utf-8") as f:
+        f.write(page_html)
 
 # Generate index page with CSS for post previews with images
 index_html = """<!DOCTYPE html>
@@ -327,7 +586,7 @@ index_html = """<!DOCTYPE html>
 for post in posts:
     image_html = ""
     if post.get("image"):
-        image_html = f'<div class="post-image"><img src="{post["image"]}" alt="{post["title"]} featured image"></div>'
+        image_html = f'<div class="post-image"><img src="{post["image"]}" alt="{post["title"]}" featured image"></div>'
 
     index_html += f"""
       <article class="post-preview">
@@ -381,5 +640,4 @@ index_html += (
 
 with open("public/index.html", "w", encoding="utf-8") as f:
     f.write(index_html)
-
 print(f"✅ Blog generated with {len(posts)} posts")

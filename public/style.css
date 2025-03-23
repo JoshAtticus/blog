@@ -96,3 +96,51 @@ body.dark-mode article {
 body.dark-mode .date {
   color: #aaa;
 }
+
+/* Custom widgets styling - consolidated */
+.summary-widget, .review-widget {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  color: #333;
+}
+
+.summary-widget h2, .review-widget h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+/* Dark mode widget styling */
+body.dark-mode .summary-widget, 
+body.dark-mode .review-widget {
+  background-color: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+body.dark-mode .summary-widget h2, 
+body.dark-mode .review-widget h2 {
+  color: #eee;
+}
+
+.review-widget a {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #0066cc;
+  color: #fff !important;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+.review-widget a:hover {
+  background-color: #004a99;
+  text-decoration: none;
+}
+
+/* Ensure that paragraph text in widgets follows the container color */
+.summary-widget p, .review-widget p {
+  color: inherit;
+}
