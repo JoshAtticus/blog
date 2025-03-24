@@ -4,13 +4,13 @@ body {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
-  color: #333;
-  background-color: #fff;
+  color: #e0e0e0;
+  background-color: #121212;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 a {
-  color: #0066cc;
+  color: #4dabf7;
   text-decoration: none;
 }
 
@@ -19,18 +19,18 @@ a:hover {
 }
 
 header h1 a {
-  color: #333;
+  color: #e0e0e0;
   text-decoration: none;
 }
 
 article {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #333;
 }
 
 .date {
-  color: #666;
+  color: #aaa;
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
@@ -99,17 +99,17 @@ body.dark-mode .date {
 
 /* Custom widgets styling - consolidated */
 .summary-widget, .review-widget {
-  border: 1px solid #ddd;
+  border: 1px solid #444;
   padding: 1rem;
   margin: 1.5rem 0;
   border-radius: 5px;
-  background-color: #f9f9f9;
-  color: #333;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
 }
 
 .summary-widget h2, .review-widget h2 {
   margin-top: 0;
-  color: #333;
+  color: #eee;
 }
 
 /* Dark mode widget styling */
@@ -129,14 +129,14 @@ body.dark-mode .review-widget h2 {
   display: inline-block;
   margin-top: 1rem;
   padding: 0.5rem 1rem;
-  background-color: #0066cc;
+  background-color: #4dabf7;
   color: #fff !important;
   text-decoration: none;
   border-radius: 3px;
 }
 
 .review-widget a:hover {
-  background-color: #004a99;
+  background-color: #2196f3;
   text-decoration: none;
 }
 
@@ -147,12 +147,12 @@ body.dark-mode .review-widget h2 {
 
 /* Review Widget Styling */
 .review-widget {
-  border: 1px solid #ddd;
+  border: 1px solid #444;
   padding: 1rem;
   margin: 1.5rem 0;
   border-radius: 5px;
-  background-color: #f9f9f9;
-  color: #333;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
   position: relative;
 }
 
@@ -188,11 +188,11 @@ body.dark-mode .review-widget h2 {
 }
 
 .review-widget .review-section.pros ul {
-  color: #2e7d32; /* Green for Pros */
+  color: #81c784; /* Lighter green for dark mode */
 }
 
 .review-widget .review-section.cons ul {
-  color: #c62828; /* Red for Cons */
+  color: #e57373; /* Lighter red for dark mode */
 }
 
 .review-widget .review-footer {
@@ -206,7 +206,7 @@ body.dark-mode .review-widget h2 {
   display: inline-block;
   margin-top: 1rem;
   padding: 0.5rem 1rem;
-  background-color: #0066cc;
+  background-color: #4dabf7;
   color: #fff !important;
   text-decoration: none;
   border-radius: 3px;
@@ -214,7 +214,7 @@ body.dark-mode .review-widget h2 {
 }
 
 .review-widget .review-cta:hover {
-  background-color: #004a99;
+  background-color: #2196f3;
 }
 
 /* Dark Mode for Review Widget */

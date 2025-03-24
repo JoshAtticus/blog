@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to my blog | JoshAtticus Blog</title>
+  <title>{title} | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -12,11 +12,10 @@
   </header>
   <main>
     <article>
-      <h1>Welcome to my blog</h1>
-      <div class="date">2023-08-23</div>
+      <h1>{title}</h1>
+      <div class="date">{date}</div>
       <div class="content">
-        <p><img alt="Example Image" src="assets/DSCF2077.JPG"></p>
-<p>This is my first blog post! I'm planning on reviewing new stuff here (such as my upcoming review on my week with iOS 17 + watchOS 10).</p>
+        {content}
       </div>
       <div class="comments">
         <h2>Comments</h2>
@@ -31,6 +30,6 @@
       </div>
     </article>
   </main>
-  <footer>© 2025 JoshAtticus</footer>
+  <footer>© {year} JoshAtticus</footer>
 </body>
 </html>

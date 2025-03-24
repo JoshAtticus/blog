@@ -5,122 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JoshAtticus Blog</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    .post-preview {
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 2rem;
-    }
-    .post-content {
-      display: flex;
-      align-items: flex-start;
-    }
-    .post-image {
-      margin-left: 1rem;
-      flex-shrink: 0;
-      width: 150px;
-      height: 150px;
-      overflow: hidden;
-      border-radius: 5px;
-      align-self: flex-start;
-      margin-top: -5.5rem; /* Use negative margin to move image up */
-    }
-    .post-image img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .summary {
-      flex-grow: 1;
-    }
-    @media (max-width: 600px) {
-      .post-content {
-        flex-direction: column;
-      }
-      .post-image {
-        margin-left: 0;
-        margin-top: 1rem; /* Reset margin for mobile layout */
-        width: 100%;
-        height: auto;
-      }
-    }
-  </style>
 </head>
 <body>
   <header>
     <h1>JoshAtticus Blog</h1>
-    <button class="theme-toggle" id="theme-toggle">🌓</button>
   </header>
   <main>
     <div class="post-list">
-
-      <article class="post-preview">
-        <h2><a href="posts/2025-03-20-wearos-5-1.html">WearOS 5.1 for Pixel Watches</a></h2>
-        <div class="date">2025-03-20</div>
-        <div class="post-content">
-          <div class="summary">[Summary]
-content: "Overall, WearOS 5.1 is a great upgrade for Pixel Watch owners and adds useful fe...</div>
-          <div class="post-image"><img src="assets/PXL_20250320_105958162.jpg" alt="WearOS 5.1 for Pixel Watches" featured image"></div>
-        </div>
-      </article>
-    
-      <article class="post-preview">
-        <h2><a href="posts/2025-03-19-hello-world.html">Hello World</a></h2>
-        <div class="date">2025-03-19</div>
-        <div class="post-content">
-          <div class="summary">This is my first blog post on my new blog. It's written in Markdown which makes it super easy to add...</div>
-          <div class="post-image"><img src="assets/DSCF2079.JPG" alt="Hello World" featured image"></div>
-        </div>
-      </article>
-    
-      <article class="post-preview">
-        <h2><a href="posts/2023-08-26-a-week-with-ios-17.html">A week with iOS 17 + watchOS 10</a></h2>
-        <div class="date">2023-08-26</div>
-        <div class="post-content">
-          <div class="summary">I'm generally a hardcore Android fan, switching to Android a few months ago. I love using my Galaxy ...</div>
-          <div class="post-image"><img src="assets/ios17-watchos10.png" alt="A week with iOS 17 + watchOS 10" featured image"></div>
-        </div>
-      </article>
-    
-      <article class="post-preview">
-        <h2><a href="posts/2023-08-23-welcome.html">Welcome to my blog</a></h2>
-        <div class="date">2023-08-23</div>
-        <div class="post-content">
-          <div class="summary">This is my first blog post! I'm planning on reviewing new stuff here (such as my upcoming review on ...</div>
-          <div class="post-image"><img src="assets/DSCF2077.JPG" alt="Welcome to my blog" featured image"></div>
-        </div>
-      </article>
-    
+      
+            <article>
+                <h2><a href="posts/2025-03-20-wearos-5-1.html">WearOS 5.1 for Pixel Watches</a></h2>
+                <p>Summary
+        Overall, WearOS 5.1 is a great upgrade for Pixel Watch owners and adds useful featur...</p>
+                <img src="posts/assets/PXL_20250320_105958162.jpg" alt="WearOS 5.1 for Pixel Watches">
+            </article>
+            
+            <article>
+                <h2><a href="posts/2025-03-19-hello-world.html">Hello World</a></h2>
+                <p>This is my first blog post on my new blog. It's written in Markdown which makes it super easy to add...</p>
+                <img src="posts/assets/DSCF2079.JPG" alt="Hello World">
+            </article>
+            
+            <article>
+                <h2><a href="posts/2023-08-26-a-week-with-ios-17.html">A week with iOS 17 + watchOS 10</a></h2>
+                <p>I'm generally a hardcore Android fan, switching to Android a few months ago. I love using my Galaxy ...</p>
+                <img src="posts/assets/ios17-watchos10.png" alt="A week with iOS 17 + watchOS 10">
+            </article>
+            
+            <article>
+                <h2><a href="posts/2023-08-23-welcome.html">Welcome to my blog</a></h2>
+                <p>This is my first blog post! I'm planning on reviewing new stuff here (such as my upcoming review on ...</p>
+                <img src="posts/assets/DSCF2077.JPG" alt="Welcome to my blog">
+            </article>
+            
     </div>
+    
   </main>
   <footer>© 2025 JoshAtticus</footer>
-  
-  <script>
-    // Dark mode toggle
-    const themeToggle = document.getElementById('theme-toggle');
-    
-    // Check for saved theme preference or use system preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-mode');
-      themeToggle.textContent = '☀️';
-    } else if (savedTheme === 'light') {
-      document.body.classList.remove('dark-mode');
-      themeToggle.textContent = '🌙';
-    }
-    
-    // Theme toggle button
-    themeToggle.addEventListener('click', () => {
-      if (document.body.classList.contains('dark-mode')) {
-        document.body.classList.remove('dark-mode');
-        localStorage.setItem('theme', 'light');
-        themeToggle.textContent = '🌙';
-      } else {
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-        themeToggle.textContent = '☀️';
-      }
-    });
-  </script>
 </body>
 </html>
