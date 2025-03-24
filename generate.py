@@ -266,7 +266,9 @@ def parse_key_value_block(block):
     for line in lines:
         key, value = line.split(":", 1)
         key = key.strip()
-        value = eval(value.strip())  # Convert to appropriate type (e.g., list, string)
+        # Replace 'true'/'false' with 'True'/'False' for Python compatibility
+        value = value.strip().replace("true", "True").replace("false", "False")
+        value = eval(value)  # Convert to appropriate type (e.g., list, string)
         data[key] = value
     return data
 
@@ -383,7 +385,7 @@ for filename in os.listdir("posts"):
         html_content = markdown.markdown(content, extensions=['extra'], output_format='html5')
         
         # Process custom widgets AFTER HTML conversion
-        html_content = process_custom_widgets_in_html(html_content)
+        html_content = parse_custom_widgets(html_content)        
         
         # Extract the first image URL before fixing paths for preview purposes
         first_image = extract_first_image(html_content)
