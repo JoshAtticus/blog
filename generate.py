@@ -220,13 +220,13 @@ def render_review_widget(match):
         <p class="review-summary">{review_data['reviewSummary']}</p>
         
         <div class="review-grid">
-            <div class="review-section">
+            <div class="review-section pros">
                 <h3>Pros</h3>
                 <ul>
                     {' '.join(f'<li>{pro}</li>' for pro in review_data['pros'])}
                 </ul>
             </div>
-            <div class="review-section">
+            <div class="review-section cons">
                 <h3>Cons</h3>
                 <ul>
                     {' '.join(f'<li>{con}</li>' for con in review_data['cons'])}
@@ -234,14 +234,12 @@ def render_review_widget(match):
             </div>
         </div>
         
-        <div class="review-grid">
-            <div class="review-section">
-                <h3>Price</h3>
-                <p>{review_data['price']}</p>
+        <div class="review-footer">
+            <div class="price">
+                <strong>Price:</strong> {review_data['price']}
             </div>
-            <div class="review-section">
-                <h3>Recommended</h3>
-                <p>{"Yes" if review_data['isRecommended'] else "No"}</p>
+            <div class="recommendation">
+                <strong>Recommended:</strong> {"Yes" if review_data['isRecommended'] else "No"}
             </div>
         </div>
         

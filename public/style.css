@@ -144,3 +144,102 @@ body.dark-mode .review-widget h2 {
 .summary-widget p, .review-widget p {
   color: inherit;
 }
+
+/* Review Widget Styling */
+.review-widget {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  color: #333;
+  position: relative;
+}
+
+.review-widget .review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.review-widget .rating {
+  font-size: 1.2rem;
+  color: #ffcc00; /* Gold for stars */
+}
+
+.review-widget .review-summary {
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+
+.review-widget .review-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.review-widget .review-section {
+  flex: 1;
+}
+
+.review-widget .review-section h3 {
+  margin-bottom: 0.5rem;
+}
+
+.review-widget .review-section.pros ul {
+  color: #2e7d32; /* Green for Pros */
+}
+
+.review-widget .review-section.cons ul {
+  color: #c62828; /* Red for Cons */
+}
+
+.review-widget .review-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.review-widget .review-cta {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #0066cc;
+  color: #fff !important;
+  text-decoration: none;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.review-widget .review-cta:hover {
+  background-color: #004a99;
+}
+
+/* Dark Mode for Review Widget */
+body.dark-mode .review-widget {
+  background-color: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+body.dark-mode .review-widget .rating {
+  color: #ffcc00; /* Keep stars gold */
+}
+
+body.dark-mode .review-widget .review-section.pros ul {
+  color: #81c784; /* Lighter green for dark mode */
+}
+
+body.dark-mode .review-widget .review-section.cons ul {
+  color: #e57373; /* Lighter red for dark mode */
+}
+
+body.dark-mode .review-widget .review-cta {
+  background-color: #4dabf7;
+}
+
+body.dark-mode .review-widget .review-cta:hover {
+  background-color: #2196f3;
+}
