@@ -1,6 +1,7 @@
 ---
 title: Hello World
 date: 2025-03-19
+tags: General, Off-topic, Technical
 ---
 ![Example Image](assets/DSCF2079.JPG)
 

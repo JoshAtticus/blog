@@ -5,90 +5,90 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hello World | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
-  <style>
-    /* Image handling in posts */
-    .content img {
-      max-width: 100%;
-      max-height: 400px; /* Smaller max height */
-      height: auto;
-      display: block;
-      margin: 1rem 0;
-    }
-    
-    /* Create image gallery for consecutive images */
-    .content p:has(img) + p:has(img) {
-      display: inline-block;
-      vertical-align: top;
-      margin-right: 1rem;
-    }
-    
-    /* Adjust consecutive images to display side by side */
-    .content p:has(img) + p:has(img) img {
-      max-height: 300px;
-      display: inline-block;
-    }
-  </style>
 </head>
 <body>
-  <header>
-    <h1><a href="../index.html">JoshAtticus Blog</a></h1>
-    <button class="theme-toggle" id="theme-toggle">🌓</button>
+  <div class="reading-progress-container">
+    <div class="reading-progress" id="reading-progress"></div>
+  </div>
+  
+    <header>
+        <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+
+    <nav class="nav">
+      <a href="tags.html">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
+        Tags
+      </a>
+      <a href="search.html">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
+        Search
+      </a>
+    </nav>
   </header>
+  
   <main>
     <article>
-      <h1>Hello World</h1>
-      <div class="date">2025-03-19</div>
-      <div class="content">
-        <p><img alt="Example Image" src="../assets/DSCF2079.JPG" /></p>
+      <!-- Banner image with title overlay -->
+      <div class="post-header">
+        <img alt="Hello World" src="../assets/DSCF2079.JPG" />
+        <div class="title-overlay">
+          <h1>Hello World</h1>
+          <div class="date">2025-03-19</div>
+        </div>
+      </div>
+      
+      <!-- Main content container -->
+      <div class="post-container">
+        <div class="content">
+          
 <p>This is my first blog post on my new blog. It's written in <strong>Markdown</strong> which makes it super easy to add:</p>
 <ul>
 <li>Lists</li>
 <li><strong>Bold text</strong></li>
 <li><a href="https://example.com">Links</a></li>
 </ul>
-<p>And it's all automatically converted to HTML!</p>
-      </div>
-      
-      <div class="comments">
-        <h2>Comments</h2>
-        <script src="https://utteranc.es/client.js"
-                repo="JoshAtticus/blog"
-                issue-term="title"
-                label="comment-thread"
-                theme="preferred-color-scheme"
-                crossorigin="anonymous"
-                async>
-        </script>
+<p>And it's all automatically converted to HTML!</p><div class="tags" style="margin-top: 1.5rem;"><a href="../tags/general.html" class="tag">General</a><a href="../tags/off-topic.html" class="tag">Off-topic</a><a href="../tags/technical.html" class="tag">Technical</a></div>
+        </div>
+        
+        <!-- Share buttons -->
+        <div class="share-buttons">
+          <a href="https://twitter.com/intent/tweet?text=Hello World by JoshAtticus&url=https://blog.joshatticus.site/posts/2025-03-19-hello-world.html" target="_blank" rel="noopener noreferrer" class="share-twitter">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+            Post on X
+          </a>
+          <a href="https://www.facebook.com/sharer/sharer.php?u=https://blog.joshatticus.site/posts/2025-03-19-hello-world.html&quote=Hello World by JoshAtticus" target="_blank" rel="noopener noreferrer" class="share-facebook">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path></svg>
+            Share on Facebook
+          </a>
+          <a href="mailto:?subject=Hello World&body=Check out this blog post by JoshAtticus: https://blog.joshatticus.site/posts/2025-03-19-hello-world.html" class="share-email">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"></path></svg>
+            Share via Email
+          </a>
+        </div>
+        
+        <div class="comments">
+          <h2>Comments</h2>
+          <script src="https://utteranc.es/client.js"
+                  repo="JoshAtticus/blog"
+                  issue-term="title"
+                  label="comment-thread"
+                  theme="github-dark"
+                  crossorigin="anonymous"
+                  async>
+          </script>
+        </div>
       </div>
     </article>
   </main>
   <footer>© 2025 JoshAtticus</footer>
   
   <script>
-    // Dark mode toggle
-    const themeToggle = document.getElementById('theme-toggle');
-    
-    // Check for saved theme preference or use system preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-  document.body.classList.add('dark-mode');
-  themeToggle.textContent = '☀️';
-} else if (savedTheme === 'light') {
-      document.body.classList.remove('dark-mode');
-      themeToggle.textContent = '🌙';
-    }
-    
-    // Theme toggle button
-    themeToggle.addEventListener('click', () => {
-      if (document.body.classList.contains('dark-mode')) {
-        document.body.classList.remove('dark-mode');
-        localStorage.setItem('theme', 'light');
-        themeToggle.textContent = '🌙';
-      } else {
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('theme', 'dark');
-        themeToggle.textContent = '☀️';
-      }
+    // Reading progress tracker
+    window.addEventListener('scroll', () => {
+      const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = (scrollTop / scrollHeight) * 100;
+      document.getElementById('reading-progress').style.width = scrolled + '%';
     });
   </script>
 </body>

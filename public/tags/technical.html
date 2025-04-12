@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Posts tagged "Technical" | JoshAtticus Blog</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="reading-progress-container">
+    <div class="reading-progress" id="reading-progress"></div>
+  </div>
+  
+    <header>
+        <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+
+    <nav class="nav">
+      <a href="tags.html">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
+        Tags
+      </a>
+      <a href="search.html">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
+        Search
+      </a>
+    </nav>
+  </header>
+  
+  <main>
+    <div class="breadcrumb">
+      <a href="../index.html">Home</a> > <a href="../tags.html">Tags</a> > Technical
+    </div>
+    
+    <h2 class="tag-header">
+      Posts tagged "Technical" <span class="tag-count">(3)</span>
+    </h2>
+    
+    <div class="post-list">
+
+      <article class="post-preview">
+        <h2><a href="../posts/2025-04-12-blog-redesign.html">Say hello to the new JoshAtticus Blog!</a></h2>
+        <div class="date">2025-04-12</div>
+        <div class="post-content">
+          <div class="summary">
+            You've probably already seen it if you're here from the home page (if not check out the awesome new ...
+            <div class="tags"><a href="../tags/general.html" class="tag">General</a><a href="../tags/off-topic.html" class="tag">Off-topic</a><a href="../tags/technical.html" class="tag">Technical</a></div>
+          </div>
+          <div class="post-image"><img src="../assets/blog.png" alt="Say hello to the new JoshAtticus Blog! featured image"></div>
+        </div>
+      </article>
+    
+      <article class="post-preview">
+        <h2><a href="../posts/2025-03-19-hello-world.html">Hello World</a></h2>
+        <div class="date">2025-03-19</div>
+        <div class="post-content">
+          <div class="summary">
+            This is my first blog post on my new blog. It's written in Markdown which makes it super easy to add...
+            <div class="tags"><a href="../tags/general.html" class="tag">General</a><a href="../tags/off-topic.html" class="tag">Off-topic</a><a href="../tags/technical.html" class="tag">Technical</a></div>
+          </div>
+          <div class="post-image"><img src="../assets/DSCF2079.JPG" alt="Hello World featured image"></div>
+        </div>
+      </article>
+    
+      <article class="post-preview">
+        <h2><a href="../posts/2023-08-23-welcome.html">Welcome to my blog</a></h2>
+        <div class="date">2023-08-23</div>
+        <div class="post-content">
+          <div class="summary">
+            This post is from the old JoshAtticus Blog and is most likely out of date
+This is my first blog post...
+            <div class="tags"><a href="../tags/general.html" class="tag">General</a><a href="../tags/off-topic.html" class="tag">Off-topic</a><a href="../tags/technical.html" class="tag">Technical</a></div>
+          </div>
+          <div class="post-image"><img src="../assets/DSCF2077.JPG" alt="Welcome to my blog featured image"></div>
+        </div>
+      </article>
+    
+    </div>
+  </main>
+  <footer>© 2025 JoshAtticus</footer>
+  
+  <script>
+    // Reading progress tracker
+    window.addEventListener('scroll', () => {
+      const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = (scrollTop / scrollHeight) * 100;
+      document.getElementById('reading-progress').style.width = scrolled + '%';
+    });
+  </script>
+</body>
+</html>
