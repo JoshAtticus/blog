@@ -1,7 +1,7 @@
 ---
 title: A week with iOS 17 + watchOS 10
 date: 2023-08-26
-tags: Apple, iOS, watchOS, Smartwatch, iPhone, Update, Software
+tags: Apple, iOS, watchOS, Smartwatch, iPhone, Update, Software, Old
 ---
 ![Example Image](assets/ios17-watchos10.png)
 
