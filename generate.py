@@ -91,14 +91,27 @@ POST_TEMPLATE = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{title} | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
+  
+  <!-- Open Graph / Facebook Meta Tags -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="{url}">
+  <meta property="og:title" content="{title} | JoshAtticus Blog">
+  <meta property="og:description" content="{description}">
+  <meta property="og:image" content="{absolute_image_url}">
+  
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{title} | JoshAtticus Blog">
+  <meta name="twitter:description" content="{description}">
+  <meta name="twitter:image" content="{absolute_image_url}">
 </head>
 <body>
   <div class="reading-progress-container">
     <div class="reading-progress" id="reading-progress"></div>
   </div>
   
-    <header>
-        <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+  <header>
+    <h1><a href="../index.html">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
       <a href="tags.html">
@@ -697,7 +710,13 @@ def process_markdown_posts():
             
             # Create URL for sharing
             post_url = f"https://blog.joshatticus.site/posts/{post_filename}"
-            
+
+            # Create absolute image URL (important for social media previews)
+            absolute_image_url = f"https://blog.joshatticus.site/{first_image}"
+
+            # Use summary as description for meta tags
+            description = summary_text[:160] + "..." if len(summary_text) > 160 else summary_text
+
             # Add tags to the post HTML content
             tags_html = ''
             if tags:
@@ -706,12 +725,14 @@ def process_markdown_posts():
                     tag_slug = tag.lower().replace(' ', '-')
                     tags_html += f'<a href="../tags/{tag_slug}.html" class="tag">{tag}</a>'
                 tags_html += '</div>'
-            
+
             # Modify POST_TEMPLATE to include tags
             post_html = POST_TEMPLATE.format(
                 title=title,
                 date=date_str,
                 first_image=first_image,
+                absolute_image_url=absolute_image_url,
+                description=description,
                 content_without_first_image=escaped_content + tags_html,  # Add tags after content
                 year=datetime.now().year,
                 url=post_url
@@ -777,6 +798,19 @@ if __name__ == "__main__":
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JoshAtticus Blog</title>
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Open Graph / Facebook Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://blog.joshatticus.site/">
+  <meta property="og:title" content="JoshAtticus Blog">
+  <meta property="og:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
+  <meta property="og:image" content="https://blog.joshatticus.site/assets/default-banner.jpg">
+  
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JoshAtticus Blog">
+  <meta name="twitter:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
+  <meta name="twitter:image" content="https://blog.joshatticus.site/assets/default-banner.jpg">
 </head>
 <body>
   <div class="reading-progress-container">
