@@ -104,6 +104,8 @@ POST_TEMPLATE = """<!DOCTYPE html>
   <meta name="twitter:title" content="{title} | JoshAtticus Blog">
   <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{absolute_image_url}">
+  
+  <script defer data-domain="joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
   <div class="reading-progress-container">
@@ -337,6 +339,7 @@ def generate_tag_page_html(tag, posts):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Posts tagged "{tag}" | JoshAtticus Blog</title>
   <link rel="stylesheet" href="../style.css">
+  <script defer data-domain="joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
   <div class="reading-progress-container">
@@ -429,6 +432,7 @@ def generate_tags_index_html(tags):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>All Tags | JoshAtticus Blog</title>
   <link rel="stylesheet" href="style.css">
+  <script defer data-domain="joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
   <div class="reading-progress-container">
@@ -497,6 +501,7 @@ def generate_search_page_html():
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Search | JoshAtticus Blog</title>
   <link rel="stylesheet" href="style.css">
+  <script defer data-domain="joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
   <div class="reading-progress-container">
@@ -811,6 +816,8 @@ if __name__ == "__main__":
   <meta name="twitter:title" content="JoshAtticus Blog">
   <meta name="twitter:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
   <meta name="twitter:image" content="https://blog.joshatticus.site/assets/default-banner.jpg">
+  
+  <script defer data-domain="joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
   <div class="reading-progress-container">
