@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Posts tagged "Warranty" | JoshAtticus Blog</title>
-  <link rel="stylesheet" href="../style.css">
+  <title>Posts tagged "{{ tag }}" | JoshAtticus Blog</title>
+  <link rel="stylesheet" href="/style.css">
   <script defer data-domain="blog.joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
@@ -12,15 +12,15 @@
     <div class="reading-progress" id="reading-progress"></div>
   </div>
   
-    <header>
-        <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+  <header>
+    <h1><a href="/">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
-      <a href="../tags.html">
+      <a href="/tags">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
         Tags
       </a>
-      <a href="../search.html">
+      <a href="/search">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
         Search
       </a>
@@ -29,30 +29,38 @@
   
   <main>
     <div class="breadcrumb">
-      <a href="../index.html">Home</a> > <a href="../tags.html">Tags</a> > Warranty
+      <a href="/">Home</a> > <a href="/tags">Tags</a> > {{ tag }}
     </div>
     
     <h2 class="tag-header">
-      Posts tagged "Warranty" <span class="tag-count">(1)</span>
+      Posts tagged "{{ tag }}" <span class="tag-count">({{ posts|length }})</span>
     </h2>
     
     <div class="post-list">
-
+      {% for post in posts %}
       <article class="post-preview">
-        <h2><a href="../posts/2025-04-12-google-pixel-warranty.html">My experience with Google Pixel warranty</a></h2>
-        <div class="date">2025-04-12</div>
+        <h2><a href="/posts/{{ post.slug }}">{{ post.title }}</a></h2>
+        <div class="date">{{ post.date }}</div>
         <div class="post-content">
           <div class="summary">
-            Since my Pixel 8 Pro's screen suddenly stopped working a few weeks ago and I had to switch back to m...
-            <div class="tags"><a href="../tags/android.html" class="tag">Android</a><a href="../tags/google.html" class="tag">Google</a><a href="../tags/smartphones.html" class="tag">Smartphones</a><a href="../tags/warranty.html" class="tag">Warranty</a><a href="../tags/support.html" class="tag">Support</a><a href="../tags/hardware.html" class="tag">Hardware</a><a href="../tags/pixel.html" class="tag">Pixel</a></div>
+            {{ post.summary }}
+            {% if post.tags %}
+            <div class="tags">
+              {% for post_tag in post.tags %}
+              <a href="/tags/{{ post_tag|lower|replace(' ', '-') }}" class="tag">{{ post_tag }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
           </div>
-          <div class="post-image"><img src="../assets/P1000003.JPG" alt="My experience with Google Pixel warranty featured image"></div>
+          <div class="post-image">
+            <img src="/{{ post.image }}" alt="{{ post.title }} featured image">
+          </div>
         </div>
       </article>
-    
+      {% endfor %}
     </div>
   </main>
-  <footer>© 2025 JoshAtticus</footer>
+  <footer>© {{ year }} JoshAtticus</footer>
   
   <script>
     // Reading progress tracker
