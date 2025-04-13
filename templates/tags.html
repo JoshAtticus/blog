@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Posts tagged "iPhone" | JoshAtticus Blog</title>
-  <link rel="stylesheet" href="../style.css">
+  <title>All Tags | JoshAtticus Blog</title>
+  <link rel="stylesheet" href="/style.css">
   <script defer data-domain="blog.joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body>
@@ -12,15 +12,15 @@
     <div class="reading-progress" id="reading-progress"></div>
   </div>
   
-    <header>
-        <h1><a href="../index.html">JoshAtticus Blog</a></h1>
+  <header>
+    <h1><a href="/">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
-      <a href="../tags.html">
+      <a href="/tags">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
         Tags
       </a>
-      <a href="../search.html">
+      <a href="/search">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
         Search
       </a>
@@ -29,31 +29,21 @@
   
   <main>
     <div class="breadcrumb">
-      <a href="../index.html">Home</a> > <a href="../tags.html">Tags</a> > iPhone
+      <a href="/">Home</a> > Tags
     </div>
     
-    <h2 class="tag-header">
-      Posts tagged "iPhone" <span class="tag-count">(1)</span>
-    </h2>
+    <h2>All Tags</h2>
     
-    <div class="post-list">
-
-      <article class="post-preview">
-        <h2><a href="../posts/2023-08-26-a-week-with-ios-17.html">A week with iOS 17 + watchOS 10</a></h2>
-        <div class="date">2023-08-26</div>
-        <div class="post-content">
-          <div class="summary">
-            This post is from the old JoshAtticus Blog and is most likely out of date
-I'm generally a hardcore A...
-            <div class="tags"><a href="../tags/apple.html" class="tag">Apple</a><a href="../tags/ios.html" class="tag">iOS</a><a href="../tags/watchos.html" class="tag">watchOS</a><a href="../tags/smartwatch.html" class="tag">Smartwatch</a><a href="../tags/iphone.html" class="tag">iPhone</a><a href="../tags/update.html" class="tag">Update</a><a href="../tags/software.html" class="tag">Software</a><a href="../tags/old.html" class="tag">Old</a></div>
-          </div>
-          <div class="post-image"><img src="../assets/ios17-watchos10.png" alt="A week with iOS 17 + watchOS 10 featured image"></div>
-        </div>
-      </article>
-    
+    <div class="tag-cloud">
+      {% for tag in tags %}
+      <a href="/tags/{{ tag.slug }}" class="tag-item">
+        <span class="tag-name">{{ tag.name }}</span>
+        <span class="tag-count">{{ tag.count }}</span>
+      </a>
+      {% endfor %}
     </div>
   </main>
-  <footer>© 2025 JoshAtticus</footer>
+  <footer>© {{ year }} JoshAtticus</footer>
   
   <script>
     // Reading progress tracker
