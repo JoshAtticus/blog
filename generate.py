@@ -116,11 +116,11 @@ POST_TEMPLATE = """<!DOCTYPE html>
     <h1><a href="../index.html">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
-      <a href="tags.html">
+      <a href="../tags.html">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
         Tags
       </a>
-      <a href="search.html">
+      <a href="../search.html">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
         Search
       </a>
@@ -350,11 +350,11 @@ def generate_tag_page_html(tag, posts):
         <h1><a href="../index.html">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
-      <a href="tags.html">
+      <a href="../tags.html">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
         Tags
       </a>
-      <a href="search.html">
+      <a href="../search.html">
         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
         Search
       </a>
