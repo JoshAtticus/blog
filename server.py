@@ -23,6 +23,7 @@ processed_images = set()
 
 def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QUALITY):
     """Compress an image and return it as bytes"""
+    MAX_HEIGHT = 1600  # Maximum height for any image
     cache_key = f'img_{image_path}_{max_width}_{quality}'
     cached_image = cache.get(cache_key)
     
@@ -38,17 +39,36 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             
         img = Image.open(image_path)
         
+        # Check if image needs resizing based on width or height
+        needs_resize = False
+        ratio = 1.0
+        
         if img.width > max_width:
             ratio = max_width / img.width
+            needs_resize = True
+            
+        if img.height > MAX_HEIGHT:
+            height_ratio = MAX_HEIGHT / img.height
+            ratio = min(ratio, height_ratio)  # Use the smaller ratio
+            needs_resize = True
+            
+        if needs_resize:
+            new_width = int(img.width * ratio)
             new_height = int(img.height * ratio)
-            img = img.resize((max_width, new_height), Image.LANCZOS)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
         
+        # Adjust quality based on file size
         output = io.BytesIO()
         format = image_path.lower().split('.')[-1]
         if format == 'jpg':
             format = 'jpeg'
         
-        img.save(output, format=format, optimize=True, quality=quality)
+        # Lower quality for very large images
+        final_quality = quality
+        if img.width * img.height > 2000000:  # For images larger than 2MP
+            final_quality = min(quality, 75)
+        
+        img.save(output, format=format, optimize=True, quality=final_quality)
         output.seek(0)
         compressed_data = output.getvalue()
         
