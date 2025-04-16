@@ -1,46 +1,55 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ post.title }} | JoshAtticus Blog</title>
   <link rel="stylesheet" href="/style.css">
-  
+
   <!-- Open Graph / Facebook Meta Tags -->
   <meta property="og:type" content="article">
   <meta property="og:url" content="{{ url }}">
   <meta property="og:title" content="{{ post.title }} | JoshAtticus Blog">
   <meta property="og:description" content="{{ post.summary }}">
   <meta property="og:image" content="{{ absolute_image_url }}">
-  
+
   <!-- Twitter Meta Tags -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ post.title }} | JoshAtticus Blog">
   <meta name="twitter:description" content="{{ post.summary }}">
   <meta name="twitter:image" content="{{ absolute_image_url }}">
-  
-  <script defer data-domain="blog.joshatticus.site" src="https://plausible.joshatticus.site/js/script.file-downloads.outbound-links.js"></script>
+
+  <script defer data-domain="blog.joshatticus.site" data-api="/redfrog/server-events/event"
+    src="/redfrog/red-frog-596f/script.file-downloads.outbound-links.js"></script>
 </head>
+
 <body>
   <div class="reading-progress-container">
     <div class="reading-progress" id="reading-progress"></div>
   </div>
-  
+
   <header>
     <h1><a href="/">JoshAtticus Blog</a></h1>
 
     <nav class="nav">
       <a href="/tags">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z"/></svg>
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z" />
+        </svg>
         Tags
       </a>
       <a href="/search">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z"/></svg>
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z" />
+        </svg>
         Search
       </a>
     </nav>
   </header>
-  
+
   <main>
     <article>
       <!-- Banner image with title overlay -->
@@ -51,12 +60,12 @@
           <div class="date">{{ post.date }}</div>
         </div>
       </div>
-      
+
       <!-- Main content container -->
       <div class="post-container">
         <div class="content">
           {{ post.content|safe }}
-          
+
           <!-- Tags -->
           {% if post.tags %}
           <div class="tags" style="margin-top: 1.5rem;">
@@ -66,39 +75,49 @@
           </div>
           {% endif %}
         </div>
-        
+
         <!-- Share buttons -->
         <div class="share-buttons">
-          <a href="https://twitter.com/intent/tweet?text={{ post.title }} by JoshAtticus&url={{ url }}" target="_blank" rel="noopener noreferrer" class="share-twitter">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+          <a href="https://twitter.com/intent/tweet?text={{ post.title }} by JoshAtticus&url={{ url }}" target="_blank"
+            rel="noopener noreferrer" class="share-twitter">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z">
+              </path>
+            </svg>
             Post on X
           </a>
-          <a href="https://www.facebook.com/sharer/sharer.php?u={{ url }}&quote={{ post.title }} by JoshAtticus" target="_blank" rel="noopener noreferrer" class="share-facebook">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path></svg>
+          <a href="https://www.facebook.com/sharer/sharer.php?u={{ url }}&quote={{ post.title }} by JoshAtticus"
+            target="_blank" rel="noopener noreferrer" class="share-facebook">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z">
+              </path>
+            </svg>
             Share on Facebook
           </a>
-          <a href="mailto:?subject={{ post.title }}&body=Check out this blog post by JoshAtticus: {{ url }}" class="share-email">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"></path></svg>
+          <a href="mailto:?subject={{ post.title }}&body=Check out this blog post by JoshAtticus: {{ url }}"
+            class="share-email">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z">
+              </path>
+            </svg>
             Share via Email
           </a>
         </div>
-        
+
         <div class="comments">
           <h2>Comments</h2>
-          <script src="https://utteranc.es/client.js"
-                  repo="JoshAtticus/blog"
-                  issue-term="title"
-                  label="comment-thread"
-                  theme="github-dark"
-                  crossorigin="anonymous"
-                  async>
-          </script>
+          <script src="https://utteranc.es/client.js" repo="JoshAtticus/blog" issue-term="title" label="comment-thread"
+            theme="github-dark" crossorigin="anonymous" async>
+            </script>
         </div>
       </div>
     </article>
   </main>
   <footer>© {{ year }} JoshAtticus</footer>
-  
+
   <script>
     // Reading progress tracker
     window.addEventListener('scroll', () => {
@@ -109,4 +128,5 @@
     });
   </script>
 </body>
+
 </html>
