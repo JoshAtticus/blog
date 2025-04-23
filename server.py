@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, send_from_directory, redirect
 from cachelib import SimpleCache
 from PIL import Image
 import io
+from feedgen.feed import FeedGenerator
 
 app = Flask(__name__, template_folder='templates')
 
@@ -345,6 +346,45 @@ def serve_post_specific_asset(post_slug, filename):
             mimetype = "image/jpeg"
         return app.response_class(compressed_image, mimetype=mimetype)
     return send_from_directory(dir_path, filename)
+
+@app.route('/feed.rss')
+def rss_feed():
+    """Generate an RSS feed of blog posts"""
+    fg = FeedGenerator()
+    fg.title('Josh\'s Blog')
+    fg.description('Personal blog')
+    fg.link(href='https://blog.joshatticus.site')
+    fg.language('en')
+    
+    posts = get_all_posts()
+    
+    for post in posts:
+        fe = fg.add_entry()
+        fe.title(post['title'])
+        fe.link(href=f"https://blog.joshatticus.site/posts/{post['slug']}")
+        
+        # Format the date properly for RSS
+        try:
+            post_date = datetime.strptime(post['date'], '%Y-%m-%d')
+            fe.published(post_date)
+        except ValueError:
+            # If date format is different, use current time
+            fe.published(datetime.now())
+        
+        # Include the image in content if available
+        content = ""
+        if post['image']:
+            image_url = f"https://blog.joshatticus.site/{post['image']}"
+            content += f'<p><img src="{image_url}" alt="{post["title"]}"></p>'
+        
+        content += post['content']
+        fe.content(content, type='html')
+        
+        # Add tags as categories
+        for tag in post['tags']:
+            fe.category(term=tag)
+    
+    return app.response_class(fg.rss_str(), mimetype='application/rss+xml')
 
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)

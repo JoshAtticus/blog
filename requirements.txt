@@ -5,3 +5,4 @@ werkzeug
 gunicorn
 cachelib
 pillow
+feedgen
