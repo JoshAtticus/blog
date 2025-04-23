@@ -3,7 +3,7 @@ import re
 import json
 import markdown
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify
 from cachelib import SimpleCache
 from PIL import Image
@@ -24,7 +24,7 @@ processed_images = set()
 
 def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QUALITY):
     """Compress an image and return it as bytes"""
-    MAX_HEIGHT = 1600  # Maximum height for any image
+    MAX_HEIGHT = 1600
     cache_key = f'img_{image_path}_{max_width}_{quality}'
     cached_image = cache.get(cache_key)
     
@@ -40,7 +40,6 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             
         img = Image.open(image_path)
         
-        # Check if image needs resizing based on width or height
         needs_resize = False
         ratio = 1.0
         
@@ -50,7 +49,7 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             
         if img.height > MAX_HEIGHT:
             height_ratio = MAX_HEIGHT / img.height
-            ratio = min(ratio, height_ratio)  # Use the smaller ratio
+            ratio = min(ratio, height_ratio)
             needs_resize = True
             
         if needs_resize:
@@ -58,15 +57,13 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             new_height = int(img.height * ratio)
             img = img.resize((new_width, new_height), Image.LANCZOS)
         
-        # Adjust quality based on file size
         output = io.BytesIO()
         format = image_path.lower().split('.')[-1]
         if format == 'jpg':
             format = 'jpeg'
         
-        # Lower quality for very large images
         final_quality = quality
-        if img.width * img.height > 2000000:  # For images larger than 2MP
+        if img.width * img.height > 2000000:
             final_quality = min(quality, 75)
         
         img.save(output, format=format, optimize=True, quality=final_quality)
@@ -351,27 +348,25 @@ def serve_post_specific_asset(post_slug, filename):
 def rss_feed():
     """Generate an RSS feed of blog posts"""
     fg = FeedGenerator()
-    fg.title('Josh\'s Blog')
+    fg.title('JoshAtticus Blog')
     fg.description('Personal blog')
     fg.link(href='https://blog.joshatticus.site')
     fg.language('en')
     
     posts = get_all_posts()
+    posts = posts[::-1]
     
     for post in posts:
         fe = fg.add_entry()
         fe.title(post['title'])
         fe.link(href=f"https://blog.joshatticus.site/posts/{post['slug']}")
-        
-        # Format the date properly for RSS
         try:
             post_date = datetime.strptime(post['date'], '%Y-%m-%d')
+            post_date = post_date.replace(tzinfo=timezone.utc)
             fe.published(post_date)
         except ValueError:
-            # If date format is different, use current time
-            fe.published(datetime.now())
+            fe.published(datetime.now(timezone.utc))
         
-        # Include the image in content if available
         content = ""
         if post['image']:
             image_url = f"https://blog.joshatticus.site/{post['image']}"
@@ -380,7 +375,6 @@ def rss_feed():
         content += post['content']
         fe.content(content, type='html')
         
-        # Add tags as categories
         for tag in post['tags']:
             fe.category(term=tag)
     
