@@ -244,8 +244,8 @@ def post(slug):
     if not post:
         return redirect(url_for('index'))
     
-    post_url = f"https://blog.joshatticus.site/posts/{post['filename']}"
-    absolute_image_url = f"https://blog.joshatticus.site/{post['image']}"
+    post_url = f"https://blog.joshattic.us/posts/{post['filename']}"
+    absolute_image_url = f"https://blog.joshattic.us/{post['image']}"
     
     return render_template('post.html', 
                           post=post, 
@@ -350,7 +350,7 @@ def rss_feed():
     fg = FeedGenerator()
     fg.title('JoshAtticus Blog')
     fg.description('Personal blog')
-    fg.link(href='https://blog.joshatticus.site')
+    fg.link(href='https://blog.joshattic.us')
     fg.language('en')
     
     posts = get_all_posts()
@@ -359,7 +359,7 @@ def rss_feed():
     for post in posts:
         fe = fg.add_entry()
         fe.title(post['title'])
-        fe.link(href=f"https://blog.joshatticus.site/posts/{post['slug']}")
+        fe.link(href=f"https://blog.joshattic.us/posts/{post['slug']}")
         try:
             post_date = datetime.strptime(post['date'], '%Y-%m-%d')
             post_date = post_date.replace(tzinfo=timezone.utc)
@@ -369,7 +369,7 @@ def rss_feed():
         
         content = ""
         if post['image']:
-            image_url = f"https://blog.joshatticus.site/{post['image']}"
+            image_url = f"https://blog.joshattic.us/{post['image']}"
             content += f'<p><img src="{image_url}" alt="{post["title"]}"></p>'
         
         content += post['content']
