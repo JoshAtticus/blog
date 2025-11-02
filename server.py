@@ -22,6 +22,11 @@ processed_images = set()
 
 # helper functions for compression, site rendering etc
 
+MD_EXTENSIONS = [
+    'tables',
+    'fenced_code',
+]
+
 def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QUALITY):
     """Compress an image and return it as bytes"""
     MAX_HEIGHT = 1600
@@ -124,6 +129,27 @@ def extract_and_remove_first_image(html_content):
     
     return first_image, content_without_first_image
 
+def enforce_link_target_blank(html_content: str) -> str:
+    """Ensure all <a> tags open in a new tab with safe rel attributes.
+    - Adds target="_blank" and rel="noopener noreferrer" to all anchor tags.
+    - Replaces existing target/rel if present.
+    """
+    if not html_content:
+        return html_content
+
+    def repl(match: re.Match) -> str:
+        attrs = match.group(1) or ""
+        attrs = re.sub(r"\s*target\s*=\s*\"[^\"]*\"", "", attrs, flags=re.IGNORECASE)
+        attrs = re.sub(r"\s*target\s*=\s*'[^']*'", "", attrs, flags=re.IGNORECASE)
+        attrs = re.sub(r"\s*rel\s*=\s*\"[^\"]*\"", "", attrs, flags=re.IGNORECASE)
+        attrs = re.sub(r"\s*rel\s*=\s*'[^']*'", "", attrs, flags=re.IGNORECASE)
+        attrs = re.sub(r"\s+", " ", attrs).strip()
+        if attrs:
+            attrs = " " + attrs
+        return f"<a{attrs} target=\"_blank\" rel=\"noopener noreferrer\">"
+
+    return re.sub(r"<a\s+([^>]*)>", repl, html_content, flags=re.IGNORECASE)
+
 def clean_for_summary(html_content):
     text = re.sub(r"<[^>]+>", "", html_content)
     return text.strip()
@@ -144,7 +170,8 @@ def get_all_posts():
             
             content_without_front_matter = re.sub(r"---\n.*?\n---\n", "", content, flags=re.DOTALL)
             
-            html_content = markdown.markdown(content_without_front_matter)
+            html_content = markdown.markdown(content_without_front_matter, extensions=MD_EXTENSIONS)
+            html_content = enforce_link_target_blank(html_content)
             
             first_image, content_without_first_image = extract_and_remove_first_image(html_content)
             

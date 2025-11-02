@@ -330,6 +330,165 @@ header h1 a {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Figure + caption wrappers (added via JS) */
+.content figure {
+  margin: 1.5rem auto;
+  text-align: center;
+  max-width: 100%;
+}
+.content figure img { margin: 0; }
+.content figure figcaption {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-top: 0.4rem;
+  line-height: 1.3;
+}
+
+.content .image-grid figure,
+.content .image-row figure {
+  margin: 0; /* handled by parent containers */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.content .image-grid figure figcaption,
+.content .image-row figure figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  color: #999;
+}
+
+/* Flex row for consecutive single-image paragraphs (applied via JS) */
+.content .image-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin: 1.25rem auto;
+}
+
+.content .image-row img {
+  margin: 0; /* override default image margin */
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+/* Aspect-ratio helper classes (added via JS after image load) */
+.content img.portrait { /* Tall mobile screenshots */
+  max-width: 280px;
+  flex: 1 1 180px;
+}
+.content img.ultra-tall { /* Very tall stitched screenshots */
+  max-width: 240px;
+}
+.content img.landscape-wide { /* Very wide panoramas */
+  max-height: 420px;
+  width: auto;
+}
+
+/* Unified subtle frame for screenshots */
+.content img.screenshot-frame {
+  background: #181818;
+  padding: 4px;
+  border: 1px solid #262626;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
+/* Inline image grids for consecutive images in the same paragraph */
+.content .image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.content .image-grid img {
+  width: 100%;
+  height: auto;
+  margin: 0; /* override default img margin inside grid */
+  cursor: zoom-in;
+}
+
+/* Lightbox (gallery) */
+#lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+#lightbox.open { display: flex; }
+
+body.no-scroll { overflow: hidden; }
+
+#lightbox .lightbox-inner {
+  position: relative;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#lightbox img.lightbox-image {
+  max-width: 100%;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+#lightbox .lightbox-close {
+  position: absolute;
+  top: -3rem;
+  right: 0;
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+#lightbox .lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  border: none;
+  width: 48px;
+  height: 72px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#lightbox .lightbox-prev { left: -60px; }
+#lightbox .lightbox-next { right: -60px; }
+
+#lightbox .lightbox-caption {
+  position: absolute;
+  bottom: -2.5rem;
+  left: 0;
+  right: 0;
+  color: #ddd;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 600px) {
+  #lightbox .lightbox-prev { left: -10px; }
+  #lightbox .lightbox-next { right: -10px; }
+  #lightbox .lightbox-close { top: -2.5rem; }
+}
+
 /* Share buttons */
 .share-buttons {
   display: flex;
@@ -526,6 +685,14 @@ a:hover {
   .content h3 {
     font-size: 1.3rem;
   }
+  /* Make grouped rows stack more naturally on narrow screens */
+  .content .image-row img {
+    flex: 1 1 46%;
+    max-width: 48%;
+  }
+  .content img.portrait, .content img.ultra-tall {
+    max-width: 46%;
+  }
 }
 
 /* Main grid container for post cards */
@@ -644,6 +811,7 @@ a:hover {
   color: #bbb;
   margin-bottom: 1rem;
   display: -webkit-box;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;

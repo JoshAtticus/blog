@@ -127,6 +127,193 @@
       document.getElementById('reading-progress').style.width = scrolled + '%';
     });
   </script>
+
+  <!-- Lightbox container -->
+  <div id="lightbox" aria-hidden="true" role="dialog">
+    <div class="lightbox-inner">
+      <button class="lightbox-close" aria-label="Close">×</button>
+      <button class="lightbox-nav lightbox-prev" aria-label="Previous">‹</button>
+      <img class="lightbox-image" alt="" />
+      <button class="lightbox-nav lightbox-next" aria-label="Next">›</button>
+      <div class="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <script>
+    // Enhance images: group adjacent images that are within the same paragraph into a grid
+    (function () {
+      const content = document.querySelector('.content');
+      if (!content) return;
+
+      // First, wrap all images that aren't already in a figure with a figure/figcaption using alt text
+      Array.from(content.querySelectorAll('img')).forEach(img => {
+        if (img.closest('figure')) return;
+        const alt = img.getAttribute('alt');
+        const figure = document.createElement('figure');
+        img.parentNode.insertBefore(figure, img);
+        figure.appendChild(img);
+        if (alt && alt.trim()) {
+          const cap = document.createElement('figcaption');
+          cap.textContent = alt.trim();
+          figure.appendChild(cap);
+        }
+      });
+
+      // Convert <p><img>...<img></p> into a grid; leave paragraphs with a single img alone.
+      content.querySelectorAll('p').forEach(p => {
+        const imgs = Array.from(p.querySelectorAll(':scope > figure > img'));
+        if (imgs.length >= 2) {
+          const grid = document.createElement('div');
+          grid.className = 'image-grid';
+          // move images into the grid
+          imgs.forEach(img => grid.appendChild(img.closest('figure')));
+          // replace paragraph with grid
+          p.replaceWith(grid);
+        }
+      });
+
+      // Group consecutive paragraphs that each contain exactly one image into a flex row
+  const paragraphs = Array.from(content.querySelectorAll('p'));
+      let buffer = [];
+      function flushRow() {
+        if (buffer.length >= 2) {
+          const row = document.createElement('div');
+            row.className = 'image-row';
+            buffer.forEach(p => {
+      const fig = p.querySelector('figure');
+      if (fig) row.appendChild(fig); // move figure wrapper
+              p.remove();
+            });
+            // Insert before the first removed paragraph position
+            const ref = buffer[0];
+            ref.parentNode.insertBefore(row, ref);
+        }
+        buffer = [];
+      }
+      paragraphs.forEach(p => {
+    const figs = p.querySelectorAll(':scope > figure');
+    if (figs.length === 1 && !p.textContent.trim()) {
+          buffer.push(p);
+        } else {
+          flushRow();
+        }
+      });
+      flushRow();
+
+      // After images load, classify by aspect ratio to apply sizing helpers
+      function classify(img) {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (!w || !h) return; // not loaded yet
+        const ratio = w / h;
+        img.classList.add('screenshot-frame');
+        if (ratio < 0.75) img.classList.add('portrait');
+        if (ratio < 0.5) img.classList.add('ultra-tall');
+        if (ratio > 2.2) img.classList.add('landscape-wide');
+      }
+  const allImgs = Array.from(content.querySelectorAll('figure > img'));
+      allImgs.forEach(img => {
+        if (img.complete) {
+          classify(img);
+        } else {
+          img.addEventListener('load', () => classify(img));
+        }
+      });
+
+      // Lightbox logic with per-group galleries
+      const lightbox = document.getElementById('lightbox');
+      const lbImg = lightbox.querySelector('.lightbox-image');
+      const lbCaption = lightbox.querySelector('.lightbox-caption');
+      const btnClose = lightbox.querySelector('.lightbox-close');
+      const btnPrev = lightbox.querySelector('.lightbox-prev');
+      const btnNext = lightbox.querySelector('.lightbox-next');
+
+      let gallery = [];
+      let index = 0;
+
+      function openLightbox(images, startIndex) {
+        gallery = images;
+        index = startIndex;
+        updateLightbox();
+        lightbox.classList.add('open');
+        document.body.classList.add('no-scroll');
+        lightbox.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove('open');
+        document.body.classList.remove('no-scroll');
+        lightbox.setAttribute('aria-hidden', 'true');
+      }
+
+      function updateLightbox() {
+        const img = gallery[index];
+        if (!img) return;
+        lbImg.src = img.getAttribute('src');
+        lbImg.alt = img.getAttribute('alt') || '';
+        lbCaption.textContent = img.getAttribute('alt') || '';
+        // enable/disable nav
+        btnPrev.disabled = index <= 0;
+        btnNext.disabled = index >= gallery.length - 1;
+      }
+
+      function showNext() {
+        if (index < gallery.length - 1) {
+          index++;
+          updateLightbox();
+        }
+      }
+
+      function showPrev() {
+        if (index > 0) {
+          index--;
+          updateLightbox();
+        }
+      }
+
+      // Attach click handlers to images
+      // Images inside a grid form a gallery together; standalone images form a single-item gallery
+      content.querySelectorAll('.image-grid').forEach(grid => {
+        const imgs = Array.from(grid.querySelectorAll('img'));
+        imgs.forEach((img, i) => {
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', () => openLightbox(imgs, i));
+        });
+      });
+      // Standalone images (not inside .image-grid)
+  const standaloneImgs = Array.from(content.querySelectorAll('figure > img')).filter(img => !img.closest('.image-grid') && !img.closest('.image-row'));
+      standaloneImgs.forEach(img => {
+        img.style.cursor = 'zoom-in';
+        img.addEventListener('click', () => openLightbox([img], 0));
+      });
+
+      // Image rows also become gallery groups
+  content.querySelectorAll('.image-row').forEach(row => {
+        const imgs = Array.from(row.querySelectorAll('img'));
+        imgs.forEach((img, i) => {
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', () => openLightbox(imgs, i));
+        });
+      });
+
+      // Controls
+      btnClose.addEventListener('click', closeLightbox);
+      btnNext.addEventListener('click', showNext);
+      btnPrev.addEventListener('click', showPrev);
+      lightbox.addEventListener('click', (e) => {
+        // click outside image to close
+        if (e.target === lightbox) closeLightbox();
+      });
+
+      // Keyboard controls
+      document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowRight') showNext();
+        if (e.key === 'ArrowLeft') showPrev();
+      });
+    })();
+  </script>
 </body>
 
 </html>
