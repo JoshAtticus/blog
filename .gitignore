@@ -11,3 +11,7 @@ ENV/
 
 # Draft posts
 *.md.draft
+
+# crapOS
+.DS_Store
+Thumbs.db
