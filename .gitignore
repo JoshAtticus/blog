@@ -12,6 +12,10 @@ ENV/
 # Draft posts
 *.md.draft
 
+# Database
+blog.db
+.env
+
 # crapOS
 .DS_Store
 Thumbs.db

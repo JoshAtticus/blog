@@ -47,6 +47,12 @@
         </svg>
         Search
       </a>
+      <a href="#" id="account-btn" class="account-btn">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </svg>
+        Account
+      </a>
     </nav>
   </header>
 
@@ -78,8 +84,36 @@
       </article>
       {% endfor %}
     </div>
+    
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      {% if page > 1 %}
+        <a href="/?page={{ page - 1 }}" class="pagination-btn">← Previous</a>
+      {% else %}
+        <span class="pagination-btn disabled">← Previous</span>
+      {% endif %}
+      
+      <div class="pagination-numbers">
+        {% for p in range(1, total_pages + 1) %}
+          {% if p == page %}
+            <span class="pagination-number active">{{ p }}</span>
+          {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            <a href="/?page={{ p }}" class="pagination-number">{{ p }}</a>
+          {% elif p == page - 3 or p == page + 3 %}
+            <span class="pagination-ellipsis">...</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      
+      {% if page < total_pages %}
+        <a href="/?page={{ page + 1 }}" class="pagination-btn">Next →</a>
+      {% else %}
+        <span class="pagination-btn disabled">Next →</span>
+      {% endif %}
+    </div>
+    {% endif %}
   </main>
-  <footer>© {{ year }} JoshAtticus</footer>
+  <footer>© {{ year }} JoshAtticus | <a href="/feed.rss">RSS Feed</a></footer>
 
   <script>
     // Reading progress tracker
@@ -89,6 +123,75 @@
       const scrolled = (scrollTop / scrollHeight) * 100;
       document.getElementById('reading-progress').style.width = scrolled + '%';
     });
+
+    // Progressive image loading for index page
+    (function() {
+      const images = document.querySelectorAll('.card-image img');
+      
+      images.forEach(img => {
+        const originalSrc = img.getAttribute('src');
+        
+        // Skip if not an asset image
+        if (!originalSrc || !originalSrc.includes('/assets/')) {
+          return;
+        }
+        
+        // Add loading class
+        img.classList.add('progressive-image-loading');
+        
+        // Extract base URL and create sized versions
+        const baseUrl = originalSrc.split('?')[0];
+        const placeholderUrl = baseUrl + '?size=placeholder';
+        const thumbnailUrl = baseUrl + '?size=thumbnail';
+        
+        // Set placeholder immediately (tiny, blurred)
+        img.src = placeholderUrl;
+        img.style.filter = 'blur(10px)';
+        img.style.transition = 'filter 0.3s ease';
+        
+        // Load thumbnail
+        const thumbnailImg = new Image();
+        thumbnailImg.onload = function() {
+          img.src = thumbnailUrl;
+          img.style.filter = 'blur(0px)';
+          img.classList.remove('progressive-image-loading');
+          img.classList.add('progressive-image-loaded');
+        };
+        thumbnailImg.src = thumbnailUrl;
+      });
+    })();
+  </script>
+  <script>
+    // Check authentication status for nav button
+    async function checkAuthStatus() {
+      try {
+        const response = await fetch('/api/auth/status');
+        const data = await response.json();
+        
+        const accountBtn = document.getElementById('account-btn');
+        if (accountBtn) {
+          if (data.authenticated) {
+             accountBtn.innerHTML = `
+                <img src="${data.user.picture || '/assets/default-avatar.png'}" alt="${data.user.name}" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;">
+                ${data.user.name}
+             `;
+             accountBtn.href = "/logout";
+             accountBtn.title = "Sign Out";
+          } else {
+             accountBtn.innerHTML = `
+                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+                Sign In
+             `;
+             accountBtn.href = "/login";
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    }
+    checkAuthStatus();
   </script>
 </body>
 

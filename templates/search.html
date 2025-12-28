@@ -33,6 +33,12 @@
         </svg>
         Search
       </a>
+      <a href="#" id="account-btn" class="account-btn">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+        </svg>
+        Account
+      </a>
     </nav>
   </header>
 
@@ -53,6 +59,7 @@
       <div id="search-results" class="search-results">
         {% if query %}
         {% if results %}
+        <h3>Found {{ total_results }} result{{ 's' if total_results != 1 else '' }}</h3>
         {% for post in results %}
         <article class="post-preview">
           <h2><a href="/posts/{{ post.slug }}">{{ post.title }}</a></h2>
@@ -74,6 +81,34 @@
           </div>
         </article>
         {% endfor %}
+        
+        {% if total_pages > 1 %}
+        <div class="pagination">
+          {% if page > 1 %}
+            <a href="/search?q={{ query }}&page={{ page - 1 }}" class="pagination-btn">← Previous</a>
+          {% else %}
+            <span class="pagination-btn disabled">← Previous</span>
+          {% endif %}
+          
+          <div class="pagination-numbers">
+            {% for p in range(1, total_pages + 1) %}
+              {% if p == page %}
+                <span class="pagination-number active">{{ p }}</span>
+              {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                <a href="/search?q={{ query }}&page={{ p }}" class="pagination-number">{{ p }}</a>
+              {% elif p == page - 3 or p == page + 3 %}
+                <span class="pagination-ellipsis">...</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+          
+          {% if page < total_pages %}
+            <a href="/search?q={{ query }}&page={{ page + 1 }}" class="pagination-btn">Next →</a>
+          {% else %}
+            <span class="pagination-btn disabled">Next →</span>
+          {% endif %}
+        </div>
+        {% endif %}
         {% else %}
         <p class="no-results">No results found for "{{ query }}".</p>
         {% endif %}
@@ -200,6 +235,38 @@
         }
       });
     })();
+  </script>
+  <script>
+    // Check authentication status for nav button
+    async function checkAuthStatus() {
+      try {
+        const response = await fetch('/api/auth/status');
+        const data = await response.json();
+        
+        const accountBtn = document.getElementById('account-btn');
+        if (accountBtn) {
+          if (data.authenticated) {
+             accountBtn.innerHTML = `
+                <img src="${data.user.picture || '/assets/default-avatar.png'}" alt="${data.user.name}" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;">
+                ${data.user.name}
+             `;
+             accountBtn.href = "/logout";
+             accountBtn.title = "Sign Out";
+          } else {
+             accountBtn.innerHTML = `
+                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+                Sign In
+             `;
+             accountBtn.href = "/login";
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    }
+    checkAuthStatus();
   </script>
 </body>
 

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In | JoshAtticus Blog</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer data-domain="blog.joshattic.us"
+        src="https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    .login-wrapper {
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .site-title {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+    
+    .site-title a {
+      color: #e0e0e0;
+      text-decoration: none;
+    }
+    
+    .login-container {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      border: 1px solid #333;
+      padding: 2.5rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    
+    .login-container h2 {
+      margin-top: 0;
+      margin-bottom: 2rem;
+      color: #e0e0e0;
+      font-size: 1.5rem;
+    }
+    
+    .login-btn {
+      display: block;
+      width: 100%;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: white;
+      font-weight: 500;
+      transition: transform 0.2s, opacity 0.2s;
+      border: none;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    
+    .login-btn:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+    
+    .btn-google { background-color: #db4437; }
+    .btn-github { background-color: #333; }
+    .btn-joshatticus { background-color: #1a73e8; }
+    
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 2rem;
+      color: #888;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    
+    .back-link:hover {
+      color: #1a73e8;
+    }
+    
+    footer {
+      text-align: center;
+      padding: 1rem;
+      color: #666;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="login-wrapper">
+      <div class="site-title">
+        <a href="/">JoshAtticus Blog</a>
+      </div>
+      
+      <div class="login-container">
+        <h2>Sign In</h2>
+
+        <a href="/login/joshatticus" class="login-btn btn-joshatticus">
+        Sign in with JoshAtticusID
+        </a>
+        
+        <a href="/login/google" class="login-btn btn-google">
+          Sign in with Google
+        </a>
+        
+        <a href="/login/github" class="login-btn btn-github">
+          Sign in with GitHub
+        </a>
+      </div>
+      
+      <a href="/" class="back-link">← Back to Blog</a>
+    </div>
+  </main>
+  
+  <footer>© <span id="year"></span> JoshAtticus</footer>
+  
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+
+</html>

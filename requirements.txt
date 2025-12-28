@@ -6,3 +6,6 @@ gunicorn
 cachelib
 pillow
 feedgen
+authlib
+requests
+python-dotenv

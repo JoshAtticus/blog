@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Panel | JoshAtticus Blog</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Reset & Layout */
+        body { margin: 0; overflow: hidden; max-width: none; }
+        .app-container { display: flex; height: 100vh; background: #121212; color: #e0e0e0; }
+        
+        /* Sidebar */
+        .sidebar { width: 250px; background: #1e1e1e; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid #333; }
+        .sidebar-header h1 { margin: 0; font-size: 1.2rem; color: #fff; }
+        .nav-menu { list-style: none; padding: 1rem 0; margin: 0; }
+        .nav-item { padding: 0.75rem 1.5rem; cursor: pointer; color: #aaa; transition: 0.2s; display: flex; align-items: center; gap: 0.75rem; }
+        .nav-item:hover, .nav-item.active { background: #252525; color: #fff; border-left: 3px solid #1a73e8; }
+        .nav-item i { width: 20px; text-align: center; }
+        
+        /* Main Content */
+        .main-content { flex: 1; overflow-y: auto; padding: 2rem; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        /* Dashboard Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: #1e1e1e; padding: 1.5rem; border-radius: 8px; border: 1px solid #333; }
+        .stat-value { font-size: 2rem; font-weight: bold; color: #fff; margin: 0.5rem 0; }
+        .stat-label { color: #aaa; font-size: 0.9rem; }
+        
+        /* Charts */
+        .chart-container { background: #1e1e1e; padding: 1.5rem; border-radius: 8px; border: 1px solid #333; margin-bottom: 2rem; height: 300px; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #252525; color: #e0e0e0; font-weight: 500; }
+        td { color: #ccc; }
+        tr:hover { background: #252525; cursor: pointer; }
+        
+        /* Post Details */
+        .post-header { margin-bottom: 2rem; }
+        .post-title { font-size: 1.5rem; margin-bottom: 0.5rem; color: #fff; }
+        .post-meta { color: #aaa; font-size: 0.9rem; }
+        .sub-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #333; }
+        .sub-tab { padding: 0.75rem 1.5rem; cursor: pointer; color: #aaa; border-bottom: 2px solid transparent; }
+        .sub-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+        
+        /* Comments (Reused styles) */
+        .comment-list { display: flex; flex-direction: column; gap: 1px; background: #333; }
+        .comment-card { display: flex; background: #1e1e1e; padding: 1rem; gap: 1rem; }
+        .comment-card:hover { background: #252525; }
+        .comment-main { flex: 1; display: flex; gap: 1rem; }
+        .comment-avatar-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .comment-content-area { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+        .comment-meta { font-size: 0.8rem; color: #aaa; display: flex; gap: 0.5rem; align-items: center; }
+        .comment-author-name { color: #fff; font-weight: 500; font-size: 0.85rem; }
+        .comment-text { color: #e0e0e0; font-size: 0.9rem; line-height: 1.4; margin-top: 0.25rem; }
+        .comment-actions-row { display: flex; gap: 1rem; margin-top: 0.5rem; opacity: 0; transition: opacity 0.2s; }
+        .comment-card:hover .comment-actions-row { opacity: 1; }
+        .comment-action-link { color: #aaa; font-size: 0.85rem; cursor: pointer; background: none; border: none; padding: 0; font-weight: 500; }
+        .comment-action-link:hover { color: #fff; }
+        .comment-post-info { width: 200px; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; text-align: right; }
+        .comment-post-thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: #333; }
+        .comment-post-title { font-size: 0.8rem; color: #aaa; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .comment-post-title:hover { color: #1a73e8; }
+        .status-deleted { color: #ff5252; font-size: 0.75rem; border: 1px solid #ff5252; padding: 0 4px; border-radius: 2px; }
+        
+        /* Pagination */
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; }
+        .pagination button { background: #333; border: 1px solid #444; color: #e0e0e0; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination button:hover:not(:disabled) { background: #444; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Analytics Panel</h1>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" onclick="nav('dashboard')">Dashboard</li>
+                <li class="nav-item" onclick="nav('content')">Content</li>
+                <li class="nav-item" onclick="nav('community')">Community</li>
+                <li class="nav-item" onclick="nav('users')">Users</li>
+                <li class="nav-item" onclick="window.location.href='/'">Back to Blog</li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <!-- Dashboard -->
+            <div id="view-dashboard" class="view-section active">
+                <h2>Channel Analytics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Unique Views</div>
+                        <div class="stat-value" id="dash-total-unique-views">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Page Hits</div>
+                        <div class="stat-value" id="dash-total-views">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Shares</div>
+                        <div class="stat-value" id="dash-total-shares">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Unique Visitors (30d)</div>
+                        <div class="stat-value" id="dash-visitors-30d">-</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+                <h3>Top Posts</h3>
+                <table>
+                    <thead><tr><th>Post</th><th>Views (30d)</th></tr></thead>
+                    <tbody id="dash-top-posts"></tbody>
+                </table>
+            </div>
+            
+            <!-- Content (Posts List) -->
+            <div id="view-content" class="view-section">
+                <h2>Content</h2>
+                <table>
+                    <thead><tr><th>Post</th><th>Date</th><th>Views</th></tr></thead>
+                    <tbody id="content-list"></tbody>
+                </table>
+            </div>
+            
+            <!-- Post Details (Hidden by default) -->
+            <div id="view-post-details" class="view-section">
+                <div class="post-header">
+                    <button onclick="nav('content')" style="background:none;border:none;color:#aaa;cursor:pointer;margin-bottom:1rem">← Back to Content</button>
+                    <h2 id="detail-title" class="post-title">Post Title</h2>
+                    <div class="post-meta">Published on <span id="detail-date"></span></div>
+                </div>
+                <div class="sub-tabs">
+                    <div class="sub-tab active" onclick="switchSubTab('analytics')">Analytics</div>
+                    <div class="sub-tab" onclick="switchSubTab('community')">Community</div>
+                </div>
+                
+                <div id="sub-view-analytics">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Views</div>
+                            <div class="stat-value" id="detail-total-views">-</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="detailChart"></canvas>
+                    </div>
+                </div>
+                
+                <div id="sub-view-community" style="display:none">
+                    <div class="comment-list" id="detail-comments-list"></div>
+                    <div class="pagination" id="detail-comments-pagination"></div>
+                </div>
+            </div>
+            
+            <!-- Community (Global) -->
+            <div id="view-community" class="view-section">
+                <h2>Community</h2>
+                <div class="comment-list" id="community-list"></div>
+                <div class="pagination" id="community-pagination"></div>
+            </div>
+            
+            <!-- Users -->
+            <div id="view-users" class="view-section">
+                <h2>Users</h2>
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Email</th><th>Provider</th><th>Verified</th><th>Admin</th><th>Joined</th></tr>
+                    </thead>
+                    <tbody id="users-list"></tbody>
+                </table>
+                <div class="pagination" id="users-pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let charts = {};
+        let currentPostSlug = null;
+        let state = {
+            users: { page: 1 },
+            community: { page: 1 },
+            detailComments: { page: 1 }
+        };
+
+        // Navigation
+        function nav(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            // Find nav item that calls this function
+            const navItem = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(`'${viewId}'`));
+            if (navItem) navItem.classList.add('active');
+            
+            if (viewId === 'dashboard') loadDashboard();
+            if (viewId === 'content') loadContent();
+            if (viewId === 'community') loadCommunity(1);
+            if (viewId === 'users') loadUsers(1);
+        }
+        
+        function switchSubTab(tab) {
+            document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'analytics') {
+                document.getElementById('sub-view-analytics').style.display = 'block';
+                document.getElementById('sub-view-community').style.display = 'none';
+            } else {
+                document.getElementById('sub-view-analytics').style.display = 'none';
+                document.getElementById('sub-view-community').style.display = 'block';
+                loadPostComments(currentPostSlug, 1);
+            }
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            const res = await fetch('/api/analytics/overview');
+            const data = await res.json();
+            
+            document.getElementById('dash-total-unique-views').innerText = data.total_unique_views;
+            document.getElementById('dash-total-views').innerText = data.total_views;
+            document.getElementById('dash-total-shares').innerText = data.total_shares;
+            document.getElementById('dash-visitors-30d').innerText = data.visitors_30d;
+            
+            document.getElementById('dash-top-posts').innerHTML = data.top_posts.map(p => `
+                <tr onclick="openPost('${p.slug}')">
+                    <td>${p.title}</td>
+                    <td>${p.views}</td>
+                </tr>
+            `).join('');
+            
+            // Chart
+            const chartRes = await fetch('/api/analytics/chart');
+            const chartData = await chartRes.json();
+            renderChart('mainChart', chartData.map(d => d.date), chartData.map(d => d.views), 'Views');
+        }
+        
+        // Content
+        async function loadContent() {
+            const res = await fetch('/api/analytics/posts');
+            const data = await res.json();
+            
+            document.getElementById('content-list').innerHTML = data.map(p => `
+                <tr onclick="openPost('${p.slug}')">
+                    <td>
+                        <div style="display:flex;align-items:center;gap:1rem">
+                            <img src="${p.image || '/assets/default-post.jpg'}" style="width:60px;height:34px;object-fit:cover;border-radius:4px">
+                            ${p.title}
+                        </div>
+                    </td>
+                    <td>${p.date}</td>
+                    <td>${p.views}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Post Details
+        async function openPost(slug) {
+            currentPostSlug = slug;
+            nav('post-details'); // This isn't in nav menu but works for view switching
+            
+            // Fetch details
+            const res = await fetch(`/api/analytics/posts/${slug}`);
+            const data = await res.json();
+            
+            document.getElementById('detail-title').innerText = slug; // Ideally get title from content list or API
+            document.getElementById('detail-total-views').innerText = data.total_views;
+            
+            renderChart('detailChart', data.daily_views.map(d => d.date), data.daily_views.map(d => d.views), 'Views');
+            
+            // Reset sub-tab
+            switchSubTab('analytics');
+            document.querySelector('.sub-tab').click(); // Click first tab
+        }
+        
+        // Community (Global)
+        async function loadCommunity(page) {
+            const res = await fetch(`/api/admin/comments?page=${page}`);
+            const data = await res.json();
+            state.community.page = data.page;
+            renderComments(data.comments, 'community-list');
+            renderPagination('community', data.page, data.total_pages, 'loadCommunity');
+        }
+        
+        // Post Comments
+        async function loadPostComments(slug, page) {
+            const res = await fetch(`/api/admin/comments?slug=${slug}&page=${page}`);
+            const data = await res.json();
+            state.detailComments.page = data.page;
+            renderComments(data.comments, 'detail-comments-list');
+            renderPagination('detail-comments', data.page, data.total_pages, 'loadPostCommentsWrapper');
+        }
+        
+        function loadPostCommentsWrapper(page) {
+            loadPostComments(currentPostSlug, page);
+        }
+
+        // Users
+        async function loadUsers(page) {
+            const res = await fetch(`/api/admin/users?page=${page}`);
+            const data = await res.json();
+            state.users.page = data.page;
+            
+            document.getElementById('users-list').innerHTML = data.users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <img src="${user.picture || '/assets/default-avatar.png'}" style="width:24px;height:24px;border-radius:50%">
+                            ${user.name}
+                        </div>
+                    </td>
+                    <td>${user.email || '-'}</td>
+                    <td>${user.oauth_provider}</td>
+                    <td>
+                        <span class="status-badge ${user.email_verified ? 'status-verified' : 'status-unverified'}">
+                            ${user.email_verified ? 'Verified' : 'Unverified'}
+                        </span>
+                    </td>
+                    <td>${user.is_admin ? 'Yes' : 'No'}</td>
+                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+            renderPagination('users', data.page, data.total_pages, 'loadUsers');
+        }
+
+        // Helpers
+        function renderComments(comments, containerId) {
+            document.getElementById(containerId).innerHTML = comments.map(comment => `
+                <div class="comment-card">
+                    <div class="comment-main">
+                        <img src="${comment.picture || '/assets/default-avatar.png'}" class="comment-avatar-img">
+                        <div class="comment-content-area">
+                            <div class="comment-meta">
+                                <span class="comment-author-name">${comment.author_name}</span>
+                                <span>•</span>
+                                <span>${new Date(comment.created_at).toLocaleDateString()}</span>
+                                ${comment.is_deleted ? '<span class="status-deleted">Deleted</span>' : ''}
+                            </div>
+                            <div class="comment-text">${comment.comment_text}</div>
+                            <div class="comment-actions-row">
+                                ${!comment.is_deleted ? `<button class="comment-action-link" onclick="deleteComment(${comment.id})">DELETE</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comment-post-info">
+                        <a href="/posts/${comment.slug}" target="_blank">
+                            <img src="${comment.post_image || '/assets/default-post.jpg'}" class="comment-post-thumb">
+                        </a>
+                        <a href="/posts/${comment.slug}" target="_blank" class="comment-post-title">
+                            ${comment.post_title || comment.slug}
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderPagination(type, page, totalPages, funcName) {
+            const container = document.getElementById(`${type}-pagination`);
+            container.innerHTML = `
+                <button onclick="${funcName}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>Previous</button>
+                <span>Page ${page} of ${totalPages}</span>
+                <button onclick="${funcName}(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next</button>
+            `;
+        }
+        
+        async function deleteComment(id) {
+            if (!confirm('Delete comment?')) return;
+            await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+            // Reload current view
+            if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+            else loadPostComments(currentPostSlug, state.detailComments.page);
+        }
+
+        function renderChart(canvasId, labels, data, label) {
+            if (charts[canvasId]) charts[canvasId].destroy();
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: '#1a73e8',
+                        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#333' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Init
+        loadDashboard();
+    </script>
+</body>
+</html>
