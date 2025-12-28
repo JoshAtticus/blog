@@ -68,7 +68,7 @@ oauth.register(
 cache = SimpleCache()
 CACHE_TIMEOUT = 60 * 60 
 POSTS_DIR = "posts"
-DB_PATH = "blog.db"
+DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 
 COMPRESSION_QUALITY = 85
 MAX_IMAGE_WIDTH = 1200 
@@ -77,6 +77,11 @@ processed_images = set()
 # Database initialization
 def init_db():
     """Initialize the database with required tables"""
+    # Ensure the directory for the database exists
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -187,6 +192,9 @@ def init_db():
     
     conn.commit()
     conn.close()
+
+# Initialize the database when the module is loaded
+init_db()
 
 # Authentication Helpers and Routes
 def get_current_user():
