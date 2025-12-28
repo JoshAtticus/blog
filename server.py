@@ -14,11 +14,15 @@ import io
 from feedgen.feed import FeedGenerator
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+# Fix for HTTPS behind reverse proxy (Coolify/Docker)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
