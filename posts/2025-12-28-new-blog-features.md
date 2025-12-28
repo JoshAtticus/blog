@@ -1,6 +1,6 @@
 ---
 title: The JoshAtticus Blog has new features!
-date: 2025-12-27
+date: 2025-12-28
 tags: General, Off-topic, Technical
 ---
 
