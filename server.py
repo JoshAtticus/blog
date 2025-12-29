@@ -74,6 +74,11 @@ COMPRESSION_QUALITY = 85
 MAX_IMAGE_WIDTH = 1200 
 processed_images = set()
 
+# Security / Rate Limiting
+SUSPICIOUS_ERROR_LIMIT = 10
+SUSPICIOUS_ERROR_WINDOW = 60  # 1 minute
+SUSPICIOUS_BLOCK_DURATION = 3600  # 1 hour
+
 # Database initialization
 def init_db():
     """Initialize the database with required tables"""
@@ -195,6 +200,34 @@ def init_db():
 
 # Initialize the database when the module is loaded
 init_db()
+
+@app.before_request
+def check_suspicious_block():
+    # Get client IP (ProxyFix middleware handles X-Forwarded-For)
+    ip = request.remote_addr
+        
+    # Check if IP is blocked
+    if cache.get(f'blocked_{ip}'):
+        return render_template('suspicious.html'), 403
+
+@app.after_request
+def monitor_suspicious_activity(response):
+    # Monitor 4xx and 5xx errors, excluding 401/403 (auth issues)
+    if response.status_code >= 400 and response.status_code not in [401, 403]:
+        # Get client IP
+        ip = request.remote_addr
+        
+        # Increment error count
+        error_key = f'errors_{ip}'
+        errors = cache.get(error_key) or 0
+        errors += 1
+        cache.set(error_key, errors, timeout=SUSPICIOUS_ERROR_WINDOW)
+        
+        # Check if limit exceeded
+        if errors >= SUSPICIOUS_ERROR_LIMIT:
+            cache.set(f'blocked_{ip}', True, timeout=SUSPICIOUS_BLOCK_DURATION)
+            
+    return response
 
 # Authentication Helpers and Routes
 def get_current_user():
@@ -1538,6 +1571,46 @@ def rss_feed():
             fe.category(term=tag)
     
     return app.response_class(fg.rss_str(), mimetype='application/rss+xml')
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', 
+        error_code=404,
+        error_title="Page Not Found",
+        error_description="The page you are looking for might have been removed, had its name changed, or is temporarily unavailable."
+    ), 404
+
+@app.errorhandler(403)
+def forbidden(e):
+    return render_template('error.html', 
+        error_code=403,
+        error_title="Forbidden",
+        error_description="You do not have permission to access this resource."
+    ), 403
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('error.html', 
+        error_code=500,
+        error_title="Internal Server Error",
+        error_description="Something went wrong on our end. Please try again later."
+    ), 500
+
+@app.errorhandler(401)
+def unauthorized(e):
+    return render_template('error.html', 
+        error_code=401,
+        error_title="Unauthorized",
+        error_description="You need to be logged in to access this page."
+    ), 401
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return render_template('error.html', 
+        error_code=405,
+        error_title="Method Not Allowed",
+        error_description="The method is not allowed for the requested URL."
+    ), 405
 
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ error_code }} - JoshAtticus Blog</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .error-container {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: #1e1e1e;
+      border-radius: 12px;
+      margin-top: 2rem;
+      border: 1px solid #333;
+    }
+    
+    .error-icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      display: block;
+    }
+    
+    .error-title {
+      color: #ff6b6b;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+    
+    .error-message {
+      font-size: 1.1rem;
+      color: #b0b0b0;
+      max-width: 600px;
+      margin: 0 auto 1.5rem auto;
+    }
+    
+    .home-link {
+      display: inline-block;
+      margin-top: 1.5rem;
+      padding: 0.5rem 1rem;
+      background-color: #333;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    
+    .home-link:hover {
+      background-color: #444;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1><a href="/">JoshAtticus Blog</a></h1>
+  </header>
+
+  <main>
+    <div class="error-container">
+      <span class="error-icon">⚠️</span>
+      <h1 class="error-title">{{ error_code }} - {{ error_title }}</h1>
+      <p class="error-message">
+        {{ error_description }}
+      </p>
+      <a href="/" class="home-link">Return Home</a>
+    </div>
+  </main>
+</body>
+
+</html>
