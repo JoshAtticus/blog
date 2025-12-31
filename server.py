@@ -1520,6 +1520,46 @@ def analytics_post_detail(slug):
         "total_views": total_views,
         "daily_views": daily_views
     })
+    
+@app.route('/api/analytics/shares_by_platform')
+def analytics_shares_by_platform():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COALESCE(platform, 'unknown') as platform, COUNT(*) as count
+        FROM analytics_pageviews
+        WHERE event_type = 'share'
+        GROUP BY platform
+        ORDER BY count DESC
+    ''')
+    data = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(data)
+
+@app.route('/api/admin/comments/reply', methods=['POST'])
+def admin_reply_to_comment():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json()
+    parent_id = data.get('parent_id')
+    slug = data.get('slug')
+    comment_text = data.get('comment_text', '').strip()
+    if not (parent_id and slug and comment_text):
+        return jsonify({"error": "Missing required fields"}), 400
+    # Use admin's user_id and name
+    user_id = str(user['id'])
+    author_name = user['name']
+    client_ip = get_client_ip()
+    ip_hash = hash_ip(client_ip)
+    # No rate limit for admin
+    import html
+    comment_text = html.escape(comment_text).replace('\n', ' ').replace('\r', '')
+    comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
+    return jsonify({"success": True, "comment_id": comment_id})
 
 @app.route('/style.css')
 def style():

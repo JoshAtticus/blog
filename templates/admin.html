@@ -116,6 +116,10 @@
                 <div class="chart-container">
                     <canvas id="mainChart"></canvas>
                 </div>
+                <div class="chart-container">
+                    <h4>Shares by Platform</h4>
+                    <canvas id="sharesPlatformChart"></canvas>
+                </div>
                 <h3>Top Posts</h3>
                 <table>
                     <thead><tr><th>Post</th><th>Views (30d)</th></tr></thead>
@@ -350,6 +354,12 @@
                             <div class="comment-text">${comment.comment_text}</div>
                             <div class="comment-actions-row">
                                 ${!comment.is_deleted ? `<button class="comment-action-link" onclick="deleteComment(${comment.id})">DELETE</button>` : ''}
+                                ${!comment.is_deleted ? `<button class="comment-action-link" onclick="showReplyBox(${comment.id}, '${comment.slug}')">REPLY</button>` : ''}
+                            </div>
+                            <div class="reply-box" id="reply-box-${comment.id}" style="display:none;margin-top:0.5rem;">
+                                <textarea id="reply-text-${comment.id}" rows="2" style="width:100%;resize:vertical;"></textarea>
+                                <button onclick="submitReply(${comment.id}, '${comment.slug}')" style="margin-top:0.5rem;">Send Reply</button>
+                                <button onclick="hideReplyBox(${comment.id})" style="margin-top:0.5rem;">Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -363,6 +373,26 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function showReplyBox(commentId, slug) {
+            document.getElementById(`reply-box-${commentId}`).style.display = 'block';
+        }
+        function hideReplyBox(commentId) {
+            document.getElementById(`reply-box-${commentId}`).style.display = 'none';
+        }
+        async function submitReply(parentId, slug) {
+            const text = document.getElementById(`reply-text-${parentId}`).value.trim();
+            if (!text) return alert('Reply cannot be empty.');
+            await fetch('/api/admin/comments/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parent_id: parentId, slug: slug, comment_text: text })
+            });
+            hideReplyBox(parentId);
+            // Reload current view
+            if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+            else loadPostComments(currentPostSlug, state.detailComments.page);
         }
 
         function renderPagination(type, page, totalPages, funcName) {
@@ -411,7 +441,53 @@
         }
 
         // Init
-        loadDashboard();
-    </script>
-</body>
-</html>
+        // Dashboard
+        async function loadDashboard() {
+            const res = await fetch('/api/analytics/overview');
+            const data = await res.json();
+            document.getElementById('dash-total-unique-views').innerText = data.total_unique_views;
+            document.getElementById('dash-total-views').innerText = data.total_views;
+            document.getElementById('dash-total-shares').innerText = data.total_shares;
+            document.getElementById('dash-visitors-30d').innerText = data.visitors_30d;
+            document.getElementById('dash-top-posts').innerHTML = data.top_posts.map(p => `
+                <tr onclick="openPost('${p.slug}')">
+                    <td>${p.title}</td>
+                    <td>${p.views}</td>
+                </tr>
+            `).join('');
+            // Chart
+            const chartRes = await fetch('/api/analytics/chart');
+            const chartData = await chartRes.json();
+            renderChart('mainChart', chartData.map(d => d.date), chartData.map(d => d.views), 'Views');
+
+            // Shares by platform chart
+            const sharesRes = await fetch('/api/analytics/shares_by_platform');
+            const sharesData = await sharesRes.json();
+            renderBarChart('sharesPlatformChart', sharesData.map(d => d.platform), sharesData.map(d => d.count), 'Shares');
+        }
+
+        function renderBarChart(canvasId, labels, data, label) {
+            if (charts[canvasId]) charts[canvasId].destroy();
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: '#1a73e8',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#333' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
