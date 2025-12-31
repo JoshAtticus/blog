@@ -2,6 +2,7 @@
 title: The very weird world of Allwinner V3 action cameras (+ happy new year!)
 date: 2025-12-31
 tags: General, Hardware, Software, Allwinner, Cameras, China, Android, Linux, Technical
+summary: Happy new year! For the final blog post of 2025, I decided to post about my custom firmware for terrible action cameras! Enjoy :)
 ---
 
 ![Allwinner V3 action camera in front of a computer](assets/PXL_20251225_081037921.jpg)
