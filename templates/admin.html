@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Reset & Layout */
-        body { margin: 0; overflow: hidden; max-width: none; }
+        body { margin: 0; overflow: hidden; max-width: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .app-container { display: flex; height: 100vh; background: #121212; color: #e0e0e0; }
         
         /* Sidebar */
@@ -32,10 +32,10 @@
         .stat-label { color: #aaa; font-size: 0.9rem; }
         
         /* Charts */
-        .chart-container { background: #1e1e1e; padding: 1.5rem; border-radius: 8px; border: 1px solid #333; margin-bottom: 2rem; height: 300px; }
+        .chart-container { background: #1e1e1e; padding: 1.5rem; border-radius: 8px; border: 1px solid #333; margin-bottom: 2rem; height: 300px; position: relative; }
         
         /* Tables */
-        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
         th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #333; }
         th { background: #252525; color: #e0e0e0; font-weight: 500; }
         td { color: #ccc; }
@@ -49,7 +49,7 @@
         .sub-tab { padding: 0.75rem 1.5rem; cursor: pointer; color: #aaa; border-bottom: 2px solid transparent; }
         .sub-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
         
-        /* Comments (Reused styles) */
+        /* Comments */
         .comment-list { display: flex; flex-direction: column; gap: 1px; background: #333; }
         .comment-card { display: flex; background: #1e1e1e; padding: 1rem; gap: 1rem; }
         .comment-card:hover { background: #252525; }
@@ -67,13 +67,24 @@
         .comment-post-thumb { width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: #333; }
         .comment-post-title { font-size: 0.8rem; color: #aaa; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .comment-post-title:hover { color: #1a73e8; }
-        .status-deleted { color: #ff5252; font-size: 0.75rem; border: 1px solid #ff5252; padding: 0 4px; border-radius: 2px; }
         
+        /* Status Badges */
+        .status-deleted { color: #ff5252; font-size: 0.75rem; border: 1px solid #ff5252; padding: 0 4px; border-radius: 2px; }
+        .status-badge { padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; display: inline-block;}
+        .status-verified { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid #4caf50; }
+        .status-unverified { background: rgba(255, 193, 7, 0.2); color: #ffc107; border: 1px solid #ffc107; }
+
         /* Pagination */
-        .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; padding-bottom: 2rem;}
         .pagination button { background: #333; border: 1px solid #444; color: #e0e0e0; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
         .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
         .pagination button:hover:not(:disabled) { background: #444; }
+
+        /* Reply Box */
+        .reply-box { background: #252525; padding: 1rem; border-radius: 4px; border: 1px solid #333; }
+        .reply-box textarea { background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 0.5rem; }
+        .reply-box button { background: #1a73e8; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-right: 0.5rem; }
+        .reply-box button:last-child { background: #333; }
     </style>
 </head>
 <body>
@@ -139,7 +150,7 @@
             <!-- Post Details (Hidden by default) -->
             <div id="view-post-details" class="view-section">
                 <div class="post-header">
-                    <button onclick="nav('content')" style="background:none;border:none;color:#aaa;cursor:pointer;margin-bottom:1rem">← Back to Content</button>
+                    <button onclick="nav('content')" style="background:none;border:none;color:#aaa;cursor:pointer;margin-bottom:1rem;font-size:1rem;">← Back to Content</button>
                     <h2 id="detail-title" class="post-title">Post Title</h2>
                     <div class="post-meta">Published on <span id="detail-date"></span></div>
                 </div>
@@ -196,16 +207,24 @@
             detailComments: { page: 1 }
         };
 
-        // Navigation
+        // --- Navigation ---
         function nav(viewId) {
+            // Hide all sections
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById(`view-${viewId}`).classList.add('active');
-            
+            // Show target section
+            const target = document.getElementById(`view-${viewId}`);
+            if(target) target.classList.add('active');
+            else if(viewId === 'post-details') document.getElementById('view-post-details').classList.add('active');
+
+            // Update Menu Active State
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            // Find nav item that calls this function
-            const navItem = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(`'${viewId}'`));
+            const navItem = Array.from(document.querySelectorAll('.nav-item')).find(el => {
+                const onClick = el.getAttribute('onclick');
+                return onClick && onClick.includes(`'${viewId}'`);
+            });
             if (navItem) navItem.classList.add('active');
             
+            // Trigger Load Functions
             if (viewId === 'dashboard') loadDashboard();
             if (viewId === 'content') loadContent();
             if (viewId === 'community') loadCommunity(1);
@@ -214,7 +233,7 @@
         
         function switchSubTab(tab) {
             document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
+            if(event && event.target) event.target.classList.add('active');
             
             if (tab === 'analytics') {
                 document.getElementById('sub-view-analytics').style.display = 'block';
@@ -222,128 +241,161 @@
             } else {
                 document.getElementById('sub-view-analytics').style.display = 'none';
                 document.getElementById('sub-view-community').style.display = 'block';
-                loadPostComments(currentPostSlug, 1);
+                if(currentPostSlug) loadPostComments(currentPostSlug, 1);
             }
         }
 
-        // Dashboard
+        // --- Dashboard Logic ---
         async function loadDashboard() {
-            const res = await fetch('/api/analytics/overview');
-            const data = await res.json();
-            
-            document.getElementById('dash-total-unique-views').innerText = data.total_unique_views;
-            document.getElementById('dash-total-views').innerText = data.total_views;
-            document.getElementById('dash-total-shares').innerText = data.total_shares;
-            document.getElementById('dash-visitors-30d').innerText = data.visitors_30d;
-            
-            document.getElementById('dash-top-posts').innerHTML = data.top_posts.map(p => `
-                <tr onclick="openPost('${p.slug}')">
-                    <td>${p.title}</td>
-                    <td>${p.views}</td>
-                </tr>
-            `).join('');
-            
-            // Chart
-            const chartRes = await fetch('/api/analytics/chart');
-            const chartData = await chartRes.json();
-            renderChart('mainChart', chartData.map(d => d.date), chartData.map(d => d.views), 'Views');
+            try {
+                // 1. Overview Stats
+                const res = await fetch('/api/analytics/overview');
+                const data = await res.json();
+                
+                document.getElementById('dash-total-unique-views').innerText = data.total_unique_views || 0;
+                document.getElementById('dash-total-views').innerText = data.total_views || 0;
+                document.getElementById('dash-total-shares').innerText = data.total_shares || 0;
+                document.getElementById('dash-visitors-30d').innerText = data.visitors_30d || 0;
+                
+                document.getElementById('dash-top-posts').innerHTML = (data.top_posts || []).map(p => `
+                    <tr onclick="openPost('${p.slug}')">
+                        <td>${p.title}</td>
+                        <td>${p.views}</td>
+                    </tr>
+                `).join('');
+                
+                // 2. Main Chart (Line)
+                const chartRes = await fetch('/api/analytics/chart');
+                const chartData = await chartRes.json();
+                renderChart('mainChart', chartData.map(d => d.date), chartData.map(d => d.views), 'Views');
+
+                // 3. Shares Chart (Bar)
+                const sharesRes = await fetch('/api/analytics/shares_by_platform');
+                const sharesData = await sharesRes.json();
+                renderBarChart('sharesPlatformChart', sharesData.map(d => d.platform), sharesData.map(d => d.count), 'Shares');
+            } catch (err) {
+                console.error("Error loading dashboard:", err);
+            }
         }
         
-        // Content
+        // --- Content Logic ---
         async function loadContent() {
-            const res = await fetch('/api/analytics/posts');
-            const data = await res.json();
-            
-            document.getElementById('content-list').innerHTML = data.map(p => `
-                <tr onclick="openPost('${p.slug}')">
-                    <td>
-                        <div style="display:flex;align-items:center;gap:1rem">
-                            <img src="${p.image || '/assets/default-post.jpg'}" style="width:60px;height:34px;object-fit:cover;border-radius:4px">
-                            ${p.title}
-                        </div>
-                    </td>
-                    <td>${p.date}</td>
-                    <td>${p.views}</td>
-                </tr>
-            `).join('');
+            try {
+                const res = await fetch('/api/analytics/posts');
+                const data = await res.json();
+                
+                document.getElementById('content-list').innerHTML = data.map(p => `
+                    <tr onclick="openPost('${p.slug}')">
+                        <td>
+                            <div style="display:flex;align-items:center;gap:1rem">
+                                <img src="${p.image || '/assets/default-post.jpg'}" style="width:60px;height:34px;object-fit:cover;border-radius:4px" onerror="this.src='https://placehold.co/60x34'">
+                                ${p.title}
+                            </div>
+                        </td>
+                        <td>${p.date}</td>
+                        <td>${p.views}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error loading content:", err);
+            }
         }
         
-        // Post Details
+        // --- Post Details Logic ---
         async function openPost(slug) {
             currentPostSlug = slug;
-            nav('post-details'); // This isn't in nav menu but works for view switching
+            nav('post-details'); 
             
-            // Fetch details
-            const res = await fetch(`/api/analytics/posts/${slug}`);
-            const data = await res.json();
-            
-            document.getElementById('detail-title').innerText = slug; // Ideally get title from content list or API
-            document.getElementById('detail-total-views').innerText = data.total_views;
-            
-            renderChart('detailChart', data.daily_views.map(d => d.date), data.daily_views.map(d => d.views), 'Views');
-            
-            // Reset sub-tab
-            switchSubTab('analytics');
-            document.querySelector('.sub-tab').click(); // Click first tab
+            try {
+                const res = await fetch(`/api/analytics/posts/${slug}`);
+                const data = await res.json();
+                
+                document.getElementById('detail-title').innerText = data.title || slug;
+                document.getElementById('detail-date').innerText = data.date || '-';
+                document.getElementById('detail-total-views').innerText = data.total_views;
+                
+                if(data.daily_views) {
+                    renderChart('detailChart', data.daily_views.map(d => d.date), data.daily_views.map(d => d.views), 'Views');
+                }
+                
+                // Reset sub-tab to Analytics by default
+                document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+                document.querySelector('.sub-tab').classList.add('active'); // First one
+                document.getElementById('sub-view-analytics').style.display = 'block';
+                document.getElementById('sub-view-community').style.display = 'none';
+            } catch (err) {
+                console.error("Error loading post details:", err);
+            }
         }
         
-        // Community (Global)
+        // --- Community (Global) ---
         async function loadCommunity(page) {
-            const res = await fetch(`/api/admin/comments?page=${page}`);
-            const data = await res.json();
-            state.community.page = data.page;
-            renderComments(data.comments, 'community-list');
-            renderPagination('community', data.page, data.total_pages, 'loadCommunity');
+            try {
+                const res = await fetch(`/api/admin/comments?page=${page}`);
+                const data = await res.json();
+                state.community.page = data.page;
+                renderComments(data.comments, 'community-list');
+                renderPagination('community', data.page, data.total_pages, 'loadCommunity');
+            } catch (err) { console.error(err); }
         }
         
-        // Post Comments
+        // --- Post Comments (Specific) ---
         async function loadPostComments(slug, page) {
-            const res = await fetch(`/api/admin/comments?slug=${slug}&page=${page}`);
-            const data = await res.json();
-            state.detailComments.page = data.page;
-            renderComments(data.comments, 'detail-comments-list');
-            renderPagination('detail-comments', data.page, data.total_pages, 'loadPostCommentsWrapper');
+            try {
+                const res = await fetch(`/api/admin/comments?slug=${slug}&page=${page}`);
+                const data = await res.json();
+                state.detailComments.page = data.page;
+                renderComments(data.comments, 'detail-comments-list');
+                renderPagination('detail-comments', data.page, data.total_pages, 'loadPostCommentsWrapper');
+            } catch (err) { console.error(err); }
         }
         
         function loadPostCommentsWrapper(page) {
             loadPostComments(currentPostSlug, page);
         }
 
-        // Users
+        // --- Users Logic ---
         async function loadUsers(page) {
-            const res = await fetch(`/api/admin/users?page=${page}`);
-            const data = await res.json();
-            state.users.page = data.page;
-            
-            document.getElementById('users-list').innerHTML = data.users.map(user => `
-                <tr>
-                    <td>${user.id}</td>
-                    <td>
-                        <div style="display:flex;align-items:center;gap:0.5rem">
-                            <img src="${user.picture || '/assets/default-avatar.png'}" style="width:24px;height:24px;border-radius:50%">
-                            ${user.name}
-                        </div>
-                    </td>
-                    <td>${user.email || '-'}</td>
-                    <td>${user.oauth_provider}</td>
-                    <td>
-                        <span class="status-badge ${user.email_verified ? 'status-verified' : 'status-unverified'}">
-                            ${user.email_verified ? 'Verified' : 'Unverified'}
-                        </span>
-                    </td>
-                    <td>${user.is_admin ? 'Yes' : 'No'}</td>
-                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
-                </tr>
-            `).join('');
-            renderPagination('users', data.page, data.total_pages, 'loadUsers');
+            try {
+                const res = await fetch(`/api/admin/users?page=${page}`);
+                const data = await res.json();
+                state.users.page = data.page;
+                
+                document.getElementById('users-list').innerHTML = data.users.map(user => `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:0.5rem">
+                                <img src="${user.picture || '/assets/default-avatar.png'}" style="width:24px;height:24px;border-radius:50%" onerror="this.src='https://placehold.co/24'">
+                                ${user.name}
+                            </div>
+                        </td>
+                        <td>${user.email || '-'}</td>
+                        <td>${user.oauth_provider}</td>
+                        <td>
+                            <span class="status-badge ${user.email_verified ? 'status-verified' : 'status-unverified'}">
+                                ${user.email_verified ? 'Verified' : 'Unverified'}
+                            </span>
+                        </td>
+                        <td>${user.is_admin ? 'Yes' : 'No'}</td>
+                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+                renderPagination('users', data.page, data.total_pages, 'loadUsers');
+            } catch (err) { console.error(err); }
         }
 
-        // Helpers
+        // --- Helper Functions ---
         function renderComments(comments, containerId) {
-            document.getElementById(containerId).innerHTML = comments.map(comment => `
+            const container = document.getElementById(containerId);
+            if(!comments || comments.length === 0) {
+                container.innerHTML = '<div style="padding:1rem;color:#aaa">No comments found.</div>';
+                return;
+            }
+            container.innerHTML = comments.map(comment => `
                 <div class="comment-card">
                     <div class="comment-main">
-                        <img src="${comment.picture || '/assets/default-avatar.png'}" class="comment-avatar-img">
+                        <img src="${comment.picture || '/assets/default-avatar.png'}" class="comment-avatar-img" onerror="this.src='https://placehold.co/40'">
                         <div class="comment-content-area">
                             <div class="comment-meta">
                                 <span class="comment-author-name">${comment.author_name}</span>
@@ -365,7 +417,7 @@
                     </div>
                     <div class="comment-post-info">
                         <a href="/posts/${comment.slug}" target="_blank">
-                            <img src="${comment.post_image || '/assets/default-post.jpg'}" class="comment-post-thumb">
+                            <img src="${comment.post_image || '/assets/default-post.jpg'}" class="comment-post-thumb" onerror="this.src='https://placehold.co/120x68'">
                         </a>
                         <a href="/posts/${comment.slug}" target="_blank" class="comment-post-title">
                             ${comment.post_title || comment.slug}
@@ -381,40 +433,58 @@
         function hideReplyBox(commentId) {
             document.getElementById(`reply-box-${commentId}`).style.display = 'none';
         }
+        
         async function submitReply(parentId, slug) {
-            const text = document.getElementById(`reply-text-${parentId}`).value.trim();
+            const textField = document.getElementById(`reply-text-${parentId}`);
+            const text = textField.value.trim();
             if (!text) return alert('Reply cannot be empty.');
-            await fetch('/api/admin/comments/reply', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parent_id: parentId, slug: slug, comment_text: text })
-            });
-            hideReplyBox(parentId);
-            // Reload current view
-            if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
-            else loadPostComments(currentPostSlug, state.detailComments.page);
+            
+            try {
+                await fetch('/api/admin/comments/reply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parent_id: parentId, slug: slug, comment_text: text })
+                });
+                hideReplyBox(parentId);
+                textField.value = ''; // clear
+                // Reload current view
+                if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+                else loadPostComments(currentPostSlug, state.detailComments.page);
+            } catch (err) { alert('Error sending reply'); }
         }
 
         function renderPagination(type, page, totalPages, funcName) {
             const container = document.getElementById(`${type}-pagination`);
+            if(!container) return;
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
             container.innerHTML = `
                 <button onclick="${funcName}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>Previous</button>
-                <span>Page ${page} of ${totalPages}</span>
+                <span style="color:#aaa">Page ${page} of ${totalPages}</span>
                 <button onclick="${funcName}(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next</button>
             `;
         }
         
         async function deleteComment(id) {
             if (!confirm('Delete comment?')) return;
-            await fetch(`/api/comments/${id}`, { method: 'DELETE' });
-            // Reload current view
-            if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
-            else loadPostComments(currentPostSlug, state.detailComments.page);
+            try {
+                await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+                // Reload current view
+                if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+                else loadPostComments(currentPostSlug, state.detailComments.page);
+            } catch (err) { alert('Error deleting comment'); }
         }
 
         function renderChart(canvasId, labels, data, label) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
             if (charts[canvasId]) charts[canvasId].destroy();
-            const ctx = document.getElementById(canvasId).getContext('2d');
+            const ctx = canvas.getContext('2d');
             charts[canvasId] = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -439,36 +509,13 @@
                 }
             });
         }
-
-        // Init
-        // Dashboard
-        async function loadDashboard() {
-            const res = await fetch('/api/analytics/overview');
-            const data = await res.json();
-            document.getElementById('dash-total-unique-views').innerText = data.total_unique_views;
-            document.getElementById('dash-total-views').innerText = data.total_views;
-            document.getElementById('dash-total-shares').innerText = data.total_shares;
-            document.getElementById('dash-visitors-30d').innerText = data.visitors_30d;
-            document.getElementById('dash-top-posts').innerHTML = data.top_posts.map(p => `
-                <tr onclick="openPost('${p.slug}')">
-                    <td>${p.title}</td>
-                    <td>${p.views}</td>
-                </tr>
-            `).join('');
-            // Chart
-            const chartRes = await fetch('/api/analytics/chart');
-            const chartData = await chartRes.json();
-            renderChart('mainChart', chartData.map(d => d.date), chartData.map(d => d.views), 'Views');
-
-            // Shares by platform chart
-            const sharesRes = await fetch('/api/analytics/shares_by_platform');
-            const sharesData = await sharesRes.json();
-            renderBarChart('sharesPlatformChart', sharesData.map(d => d.platform), sharesData.map(d => d.count), 'Shares');
-        }
-
+        
         function renderBarChart(canvasId, labels, data, label) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
             if (charts[canvasId]) charts[canvasId].destroy();
-            const ctx = document.getElementById(canvasId).getContext('2d');
+            const ctx = canvas.getContext('2d');
             charts[canvasId] = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -491,3 +538,11 @@
                 }
             });
         }
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+        });
+    </script>
+</body>
+</html>
