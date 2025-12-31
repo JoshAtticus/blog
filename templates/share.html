@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Share this post</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .share-btns {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+    .share-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .share-btn:hover {
+      background: #444;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Share this post</h1>
+  </header>
+  <main>
+    <div class="share-btns">
+      <button class="share-btn" data-platform="twitter">🐦 Twitter</button>
+      <button class="share-btn" data-platform="facebook">📘 Facebook</button>
+      <button class="share-btn" data-platform="reddit">👽 Reddit</button>
+      <button class="share-btn" data-platform="copy">🔗 Copy Link</button>
+    </div>
+  </main>
+  <script>
+    // Example: send analytics event on share
+    document.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const platform = this.getAttribute('data-platform');
+        fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: '{{ slug }}', platform })
+        });
+        // ...actual share logic here...
+      });
+    });
+  </script>
+</body>
+</html>

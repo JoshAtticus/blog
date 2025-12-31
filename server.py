@@ -107,6 +107,7 @@ def init_db():
             UNIQUE(slug, user_id)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS analytics_pageviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,15 +117,21 @@ def init_db():
             user_agent TEXT,
             referrer TEXT,
             event_type TEXT DEFAULT 'view', -- 'view' or 'share'
+            platform TEXT, -- e.g. 'twitter', 'facebook', 'copy', etc
             viewed_at TEXT NOT NULL
         )
     ''')
-    
+
     # Migration: Add event_type column if it doesn't exist
     try:
         cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN event_type TEXT DEFAULT "view"')
     except sqlite3.OperationalError:
         pass # Column likely exists
+    # Migration: Add platform column if it doesn't exist
+    try:
+        cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN platform TEXT')
+    except sqlite3.OperationalError:
+        pass
         
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comments (
@@ -373,21 +380,39 @@ def auth_status():
         })
     return jsonify({'authenticated': False})
 
-def is_bot_user_agent(user_agent):
-    """Detect if the request is from a social media/chat bot"""
+def get_share_platform_from_user_agent(user_agent):
+    """Return platform name if user agent matches a known share bot, else None"""
     if not user_agent:
-        return False
-    
-    bot_signatures = [
-        'discordbot', 'twitterbot', 'facebookexternalhit', 'facebookbot',
-        'whatsapp', 'telegrambot', 'slackbot', 'linkedinbot', 'pinterestbot',
-        'redditbot', 'tumblr', 'mastodon', 'skypebot', 'slackbot-linkexpanding',
-        'slack-imgproxy', 'iframely', 'bitlybot', 'embedly', 'snapchat',
-        'instagrambot', 'signal', 'imessage'
-    ]
-    
+        return None
+    bot_map = {
+        'discordbot': 'discord',
+        'twitterbot': 'twitter',
+        'facebookexternalhit': 'facebook',
+        'facebookbot': 'facebook',
+        'whatsapp': 'whatsapp',
+        'telegrambot': 'telegram',
+        'slackbot': 'slack',
+        'linkedinbot': 'linkedin',
+        'pinterestbot': 'pinterest',
+        'redditbot': 'reddit',
+        'tumblr': 'tumblr',
+        'mastodon': 'mastodon',
+        'skypebot': 'skype',
+        'slackbot-linkexpanding': 'slack',
+        'slack-imgproxy': 'slack',
+        'iframely': 'iframely',
+        'bitlybot': 'bitly',
+        'embedly': 'embedly',
+        'snapchat': 'snapchat',
+        'instagrambot': 'instagram',
+        'signal': 'signal',
+        'imessage': 'imessage',
+    }
     user_agent_lower = user_agent.lower()
-    return any(bot in user_agent_lower for bot in bot_signatures)
+    for sig, platform in bot_map.items():
+        if sig in user_agent_lower:
+            return platform
+    return None
 
 def hash_ip(ip_address):
     """Hash IP address for privacy"""
@@ -481,22 +506,43 @@ def increment_shares_count(slug):
     try:
         user_id = request.cookies.get('blog_user_id') or 'unknown'
         ip_hash = hash_ip(get_client_ip())
-        log_analytics_view(slug, user_id, ip_hash, request.user_agent.string, request.referrer, 'share')
-    except:
+        platform = request.args.get('platform') or request.form.get('platform') or request.json.get('platform') if request.is_json else None
+        log_analytics_view(slug, user_id, ip_hash, request.user_agent.string, request.referrer, 'share', platform)
+    except Exception:
         pass # Fail silently if outside request context
 
-def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type='view'):
+def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type='view', platform=None):
     """Log a page view or event for analytics"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO analytics_pageviews (slug, user_id, ip_hash, user_agent, referrer, event_type, viewed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (slug, user_id, ip_hash, user_agent, referrer, event_type, datetime.now().isoformat()))
+        INSERT INTO analytics_pageviews (slug, user_id, ip_hash, user_agent, referrer, event_type, platform, viewed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (slug, user_id, ip_hash, user_agent, referrer, event_type, platform, datetime.now().isoformat()))
     conn.commit()
     conn.close()
 
-# helper functions for compression, site rendering etc
+
+# --- Share analytics via bot user agent detection ---
+@app.before_request
+def auto_log_share_from_bot():
+    # Only log for GET requests to post pages
+    if request.method != 'GET':
+        return
+    path = request.path
+    # crude check for post URL, adjust if needed
+    if path.startswith('/posts/') and not path.endswith('-assets') and '.' not in path.split('/')[-1]:
+        user_agent = request.user_agent.string
+        platform = get_share_platform_from_user_agent(user_agent)
+        if platform:
+            slug = path.split('/posts/')[-1]
+            user_id = request.cookies.get('blog_user_id') or 'unknown'
+            ip_hash = hash_ip(get_client_ip())
+            # Only log if not already logged in this session for this slug/platform
+            key = f'sharebot_{slug}_{platform}'
+            if not cache.get(key):
+                log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer, 'share', platform)
+                cache.set(key, True, timeout=60)  # avoid duplicate logs for same session
 
 MD_EXTENSIONS = [
     'tables',
@@ -997,17 +1043,15 @@ def post(slug):
         return redirect(url_for('index'))
     
     user_agent = request.headers.get('User-Agent', '')
-    is_bot = is_bot_user_agent(user_agent)
-    
-    # If it's a bot, increment shares count
-    if is_bot:
-        increment_shares_count(slug)
+    platform = get_share_platform_from_user_agent(user_agent)
+    # If it's a bot, increment shares count with platform
+    if platform:
+        increment_shares_count(slug)  # Optionally pass platform if you update increment_shares_count
     else:
         # Get or create user ID from cookie
         user_id = request.cookies.get('blog_user_id')
         if not user_id:
             user_id = str(uuid.uuid4())
-        
         # Get client IP and hash it
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
@@ -1042,7 +1086,7 @@ def post(slug):
                           shares_count=shares_count))
     
     # Set user ID cookie if it doesn't exist (expires in 1 year)
-    if not is_bot and not request.cookies.get('blog_user_id'):
+    if not platform and not request.cookies.get('blog_user_id'):
         expires = datetime.now() + timedelta(days=365)
         response.set_cookie('blog_user_id', user_id, expires=expires, httponly=True, samesite='Lax')
     
