@@ -2,6 +2,7 @@
 title: Say hello to the new JoshAtticus Blog!
 date: 2025-04-12
 tags: General, Off-topic, Technical
+wasteof_link: https://wasteof.money/posts/67fa2b25ffbc0b0562e908e5
 ---
 
 ![New Blog Homepage](assets/2025-04-12-blog-redesign/blog.png)

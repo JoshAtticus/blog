@@ -2,6 +2,7 @@
 title: The JoshAtticus Blog has new features!
 date: 2025-12-28
 tags: General, Off-topic, Technical
+wasteof_link: https://wasteof.money/posts/69513f186883bd038172d9a7
 ---
 
 ![New features hero](assets/2025-12-28-new-blog-features/new-features-2025-12-27-hero.png)

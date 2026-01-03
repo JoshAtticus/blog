@@ -70,3 +70,53 @@ async function checkAuthStatus() {
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
 });
+
+// External Link Interceptor
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented) return;
+
+  const link = e.target.closest('a');
+  if (!link) return;
+
+  // Ignore links inside the modal itself to prevent infinite loops
+  if (link.closest('.modal-content')) return;
+
+  // Ignore if target is not _blank (optional, but usually external links are _blank)
+  // Actually, we want to catch all external links regardless of target
+  
+  const href = link.getAttribute('href');
+  if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
+
+  let url;
+  try {
+    url = new URL(href, window.location.origin);
+  } catch (err) {
+    return;
+  }
+
+  if (url.hostname !== window.location.hostname) {
+    e.preventDefault();
+    
+    if (window.uiModal) {
+        window.uiModal.show({
+            title: 'Leaving Site',
+            body: `You are about to visit an external site:<br><br><strong style="color: #1a73e8; font-size: 1.1em;">${url.hostname}</strong><br><br>We are not responsible for the content of external sites.`,
+            buttons: [
+                {
+                    text: 'Continue',
+                    primary: true,
+                    link: href
+                },
+                {
+                    text: 'Cancel',
+                    primary: false
+                }
+            ]
+        });
+    } else {
+        if (confirm(`You are about to visit ${url.hostname}. Continue?`)) {
+            window.open(href, '_blank');
+        }
+    }
+  }
+});

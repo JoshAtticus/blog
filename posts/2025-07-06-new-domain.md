@@ -2,6 +2,7 @@
 title: The JoshAtticus Blog has a new domain!
 date: 2025-07-06
 tags: General, Off-topic, Technical
+wasteof_link: https://wasteof.money/posts/686a8f943f164e109a0297b1
 ---
 
 ![New domain](assets/2025-07-06-new-domain/new-domain-2025.png)

@@ -25,6 +25,11 @@
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2122521845436476"
     crossorigin="anonymous"></script>
+
+  <script defer src="/static/js/common.js"></script>
+  <script defer src="/static/js/modal.js"></script>
+  <script defer src="/static/js/post.js"></script>
+  <script>window.wasteofLink = "{{ post.wasteof_link }}";</script> <!-- YES i know this is stupid, how else am I meant to do it? -->
 </head>
 
 <body>
@@ -159,10 +164,6 @@
     </article>
   </main>
   <footer>© 2023 - {{ year }} JoshAtticus</footer>
-
-  <script src="/static/js/common.js"></script>
-  <script src="/static/js/post.js"></script>
-
 
   <div id="lightbox" aria-hidden="true" role="dialog">
     <div class="lightbox-inner">

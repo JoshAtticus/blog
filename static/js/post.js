@@ -150,7 +150,7 @@ function renderComment(comment, byParent, depth = 0) {
 
   const avatar = document.createElement('img');
   avatar.className = 'comment-avatar';
-  avatar.src = comment.picture || '/assets/default-avatar.png';
+  avatar.src = comment.author_avatar_url || comment.picture || '/assets/default-avatar.png';
   avatar.alt = comment.author_name;
 
   const contentDiv = document.createElement('div');
@@ -176,6 +176,48 @@ function renderComment(comment, byParent, depth = 0) {
 
   header.appendChild(author);
   header.appendChild(date);
+
+  if (comment.source === 'wasteof') {
+    const badge = document.createElement('a');
+    badge.textContent = 'From wasteof.money';
+    badge.href = window.wasteofLink || 'https://wasteof.money';
+    badge.target = '_blank';
+    badge.className = 'wasteof-badge';
+    badge.setAttribute('data-tooltip', 'This comment has been bridged from a third party platform not controlled by JoshAtticus. Replies posted on this blog cannot be seen by users on the third party platform.');
+    
+    // Handle click for modal
+    badge.addEventListener('click', (e) => {
+      const isMobile = window.matchMedia('(hover: none)').matches;
+      
+      if (isMobile) {
+        e.preventDefault();
+        if (window.uiModal) {
+            window.uiModal.show({
+                title: 'External Link',
+                body: 'This comment has been bridged from a third party platform, wasteof.money.',
+                buttons: [
+                    {
+                        text: 'View on wasteof.money',
+                        primary: true,
+                        link: badge.href
+                    },
+                    {
+                        text: 'Close',
+                        primary: false
+                    }
+                ]
+            });
+        } else {
+            // Fallback if modal script failed to load
+            if (confirm('This comment has been bridged from a third party platform, wasteof.money. Continue to site?')) {
+                window.open(badge.href, '_blank');
+            }
+        }
+      }
+    });
+
+    header.appendChild(badge);
+  }
 
   if (comment.edited_at) {
     const editedSpan = document.createElement('span');

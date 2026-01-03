@@ -1101,6 +1101,7 @@ footer {
   align-items: baseline;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .comment-author {
@@ -1426,4 +1427,166 @@ footer {
   .content img.ultra-tall {
     max-width: 46%;
   }
+}
+/* Wasteof.money badge */
+.wasteof-badge {
+  font-size: 0.75rem;
+  color: #ff9800;
+  text-decoration: none;
+  border: 1px solid #ff9800;
+  border-radius: 4px;
+  padding: 1px 4px;
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wasteof-badge:hover {
+  background-color: rgba(255, 152, 0, 0.1);
+  text-decoration: none;
+}
+
+/* Tooltip */
+.wasteof-badge::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem;
+  background: #333;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  width: 250px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 100;
+  margin-bottom: 5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.wasteof-badge::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #333;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 100;
+  margin-bottom: -5px; /* Adjust to touch the tooltip */
+}
+
+.wasteof-badge:hover::before,
+.wasteof-badge:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Hide tooltip on touch devices to prevent it sticking */
+@media (hover: none) {
+  .wasteof-badge::before,
+  .wasteof-badge::after {
+    display: none;
+  }
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: #1e1e1e;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 90%;
+  width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  transform: translateY(20px);
+  transition: transform 0.3s;
+  border: 1px solid #333;
+}
+
+.modal-overlay.open .modal-content {
+  transform: translateY(0);
+}
+
+.modal-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+}
+
+.modal-text {
+  color: #bbb;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.modal-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+}
+
+.modal-btn-primary {
+  background-color: #1a73e8;
+  color: white;
+  text-decoration: none;
+}
+
+.modal-btn-primary:hover {
+  background-color: #1557b0;
+  text-decoration: none;
+}
+
+.modal-btn-secondary {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.modal-btn-secondary:hover {
+  background-color: #444;
 }

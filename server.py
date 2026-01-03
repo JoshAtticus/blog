@@ -6,6 +6,8 @@ import time
 import sqlite3
 import uuid
 import hashlib
+import threading
+import requests
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session
 from cachelib import SimpleCache
@@ -188,6 +190,20 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE comments ADD COLUMN edited_at TEXT')
+    except sqlite3.OperationalError:
+        pass
+
+    # Migration: Add wasteof.money integration columns
+    try:
+        cursor.execute('ALTER TABLE comments ADD COLUMN source TEXT DEFAULT "local"')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute('ALTER TABLE comments ADD COLUMN external_id TEXT')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute('ALTER TABLE comments ADD COLUMN author_avatar_url TEXT')
     except sqlite3.OperationalError:
         pass
 
@@ -685,6 +701,11 @@ def parse_front_matter(content):
         if summary_match:
             front_matter['summary'] = summary_match.group(1).strip()
         
+        # Parse wasteof.money link
+        wasteof_match = re.search(r"wasteof_link:\s*(.*)", front_matter_text)
+        if wasteof_match:
+            front_matter['wasteof_link'] = wasteof_match.group(1).strip()
+
         tags_match = re.search(r"tags:\s*\[(.*?)\]", front_matter_text, re.DOTALL)
         if tags_match:
             tags_text = tags_match.group(1)
@@ -787,6 +808,135 @@ def process_twitter_embed(html_content):
 
     return re.sub(pattern, repl, html_content)
 
+def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id):
+    external_id = comment_data['_id']
+    user_id = comment_data['poster']['id']
+    author_name = comment_data['poster']['name']
+    content = comment_data['content'] # HTML content
+    
+    # Strip HTML
+    content = re.sub(r'<br\s*/?>', '\n', content)
+    content = re.sub(r'</p>', '\n\n', content)
+    content = re.sub(r'<[^>]+>', '', content)
+    content = content.strip()
+    
+    created_at = datetime.fromtimestamp(comment_data['time'] / 1000, timezone.utc).isoformat()
+    
+    # Get avatar
+    avatar_url = f"https://api.wasteof.money/users/{author_name}/picture"
+    
+    # Check if exists
+    cursor.execute('SELECT id FROM comments WHERE external_id = ?', (external_id,))
+    existing = cursor.fetchone()
+    
+    # Resolve parent_id
+    parent_db_id = None
+    if parent_external_id:
+        cursor.execute('SELECT id FROM comments WHERE external_id = ?', (parent_external_id,))
+        parent_row = cursor.fetchone()
+        if parent_row:
+            parent_db_id = parent_row[0]
+    
+    if existing:
+        # Update
+        cursor.execute('''
+            UPDATE comments 
+            SET comment_text = ?, author_name = ?, author_avatar_url = ?, parent_id = ?
+            WHERE id = ?
+        ''', (content, author_name, avatar_url, parent_db_id, existing[0]))
+    else:
+        # Insert
+        cursor.execute('''
+            INSERT INTO comments (slug, user_id, author_name, comment_text, parent_id, created_at, ip_hash, source, external_id, author_avatar_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (post_slug, user_id, author_name, content, parent_db_id, created_at, 'wasteof', 'wasteof', external_id, avatar_url))
+
+def fetch_wasteof_replies(cursor, post_slug, comment_id):
+    page = 1
+    headers = {
+        'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'
+    }
+    while True:
+        try:
+            resp = requests.get(f"https://api.wasteof.money/comments/{comment_id}/replies?page={page}", headers=headers, timeout=10)
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            for reply in data.get('comments', []):
+                process_wasteof_comment(cursor, post_slug, reply, comment_id)
+            
+            if data.get('last', True):
+                break
+            page += 1
+        except Exception as e:
+            print(f"Error fetching wasteof replies: {e}")
+            break
+
+def sync_wasteof_comments(post_slug, wasteof_link):
+    """Sync comments from wasteof.money"""
+    try:
+        # Extract post ID
+        match = re.search(r'wasteof\.money/posts/([a-f0-9]+)', wasteof_link)
+        if not match:
+            print(f"Invalid wasteof link for {post_slug}: {wasteof_link}")
+            return
+        
+        post_id = match.group(1)
+        
+        # Fetch comments
+        comments = []
+        page = 1
+        headers = {
+            'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'
+        }
+        while True:
+            try:
+                resp = requests.get(f"https://api.wasteof.money/posts/{post_id}/comments?page={page}", headers=headers, timeout=10)
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                comments.extend(data.get('comments', []))
+                if data.get('last', True):
+                    break
+                page += 1
+            except Exception as e:
+                print(f"Error fetching wasteof comments page {page}: {e}")
+                break
+        
+        # Process comments
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        for comment in comments:
+            process_wasteof_comment(cursor, post_slug, comment, None)
+            
+            # Handle replies
+            if comment.get('hasReplies'):
+                fetch_wasteof_replies(cursor, post_slug, comment['_id'])
+        
+        conn.commit()
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error syncing wasteof comments for {post_slug}: {e}")
+
+def run_wasteof_sync():
+    while True:
+        try:
+            posts = get_all_posts()
+            for post in posts:
+                if post.get('wasteof_link'):
+                    sync_wasteof_comments(post['slug'], post['wasteof_link'])
+            
+            time.sleep(900) # 15 minutes
+        except Exception as e:
+            print(f"Error in wasteof sync loop: {e}")
+            time.sleep(60)
+
+def start_wasteof_sync_thread():
+    thread = threading.Thread(target=run_wasteof_sync, daemon=True)
+    thread.start()
+
 def get_all_posts():
     """Get all posts with their metadata"""
     posts = cache.get('all_posts')
@@ -830,7 +980,8 @@ def get_all_posts():
                 "summary": summary_text,
                 "image": first_image,
                 "tags": front_matter.get('tags', []),
-                "content": content_without_first_image
+                "content": content_without_first_image,
+                "wasteof_link": front_matter.get('wasteof_link')
             })
     
     posts.sort(key=lambda x: x["date"], reverse=True)
@@ -933,11 +1084,11 @@ def get_comments_for_post(slug, page=None, per_page=20):
         placeholders = ','.join(['?'] * len(top_level_ids))
         query = f'''
             WITH RECURSIVE comment_tree AS (
-                SELECT id, user_id, author_name, comment_text, parent_id, created_at, is_deleted, edited_at
+                SELECT id, user_id, author_name, comment_text, parent_id, created_at, is_deleted, edited_at, source, external_id, author_avatar_url
                 FROM comments 
                 WHERE id IN ({placeholders})
                 UNION ALL
-                SELECT c.id, c.user_id, c.author_name, c.comment_text, c.parent_id, c.created_at, c.is_deleted, c.edited_at
+                SELECT c.id, c.user_id, c.author_name, c.comment_text, c.parent_id, c.created_at, c.is_deleted, c.edited_at, c.source, c.external_id, c.author_avatar_url
                 FROM comments c
                 JOIN comment_tree ct ON c.parent_id = ct.id
             )
@@ -1141,6 +1292,10 @@ def post(slug):
         response.set_cookie('blog_user_id', user_id, expires=expires, httponly=True, samesite='Lax')
     
     return response
+
+@app.route('/bot')
+def bot_page():
+    return render_template('bot.html', year=datetime.now().year)
 
 @app.route('/tags')
 def tags():
@@ -1753,4 +1908,5 @@ def method_not_allowed(e):
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     init_db()
+    start_wasteof_sync_thread()
     app.run(port=5001)
