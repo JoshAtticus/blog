@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ post.title }} | JoshAtticus Blog</title>
-  <link rel="stylesheet" href="/style.css">
+{% block title %}{{ post.title }} | JoshAtticus Blog{% endblock %}
 
+{% block meta %}
   <!-- Open Graph / Facebook Meta Tags -->
   <meta property="og:type" content="article">
   <meta property="og:url" content="{{ url }}">
@@ -19,53 +15,14 @@
   <meta name="twitter:title" content="{{ post.title }} | JoshAtticus Blog">
   <meta name="twitter:description" content="{{ post.summary }}">
   <meta name="twitter:image" content="{{ absolute_image_url }}">
+{% endblock %}
 
-  <script defer data-domain="blog.joshattic.us"
-    src="https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js"></script>
-
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2122521845436476"
-    crossorigin="anonymous"></script>
-
-  <script defer src="/static/js/common.js"></script>
-  <script defer src="/static/js/modal.js"></script>
+{% block head_scripts %}
   <script defer src="/static/js/post.js"></script>
-  <script>window.wasteofLink = "{{ post.wasteof_link }}";</script> <!-- YES i know this is stupid, how else am I meant to do it? -->
-</head>
+  <script>window.wasteofLink = "{{ post.wasteof_link }}";</script>
+{% endblock %}
 
-<body>
-  <div class="reading-progress-container">
-    <div class="reading-progress" id="reading-progress"></div>
-  </div>
-
-  <header>
-    <h1><a href="/">JoshAtticus Blog</a></h1>
-
-    <nav class="nav">
-      <a href="/tags">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z" />
-        </svg>
-        Tags
-      </a>
-      <a href="/search">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z" />
-        </svg>
-        Search
-      </a>
-      <a href="#" id="account-btn" class="account-btn">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
-        </svg>
-        Account
-      </a>
-    </nav>
-  </header>
-
-  <main>
+{% block content %}
     <article>
       <div class="post-header">
         <img alt="{{ post.title }}" src="/{{ post.image }}" />
@@ -162,8 +119,6 @@
         </div>
       </div>
     </article>
-  </main>
-  <footer>© 2023 - {{ year }} JoshAtticus</footer>
 
   <div id="lightbox" aria-hidden="true" role="dialog">
     <div class="lightbox-inner">
@@ -174,8 +129,4 @@
       <div class="lightbox-caption"></div>
     </div>
   </div>
-
-
-</body>
-
-</html>
+{% endblock %}

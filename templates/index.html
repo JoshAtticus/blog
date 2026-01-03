@@ -1,126 +1,77 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JoshAtticus Blog</title>
-  <link rel="stylesheet" href="/style.css">
+{% block meta %}
+<!-- Open Graph / Facebook Meta Tags -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://blog.joshattic.us/">
+<meta property="og:title" content="JoshAtticus Blog">
+<meta property="og:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
+<meta property="og:image" content="https://blog.joshattic.us/assets/default-banner.jpg">
 
-  <!-- Open Graph / Facebook Meta Tags -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://blog.joshattic.us/">
-  <meta property="og:title" content="JoshAtticus Blog">
-  <meta property="og:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
-  <meta property="og:image" content="https://blog.joshattic.us/assets/default-banner.jpg">
+<!-- Twitter Meta Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JoshAtticus Blog">
+<meta name="twitter:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
+<meta name="twitter:image" content="https://blog.joshattic.us/assets/default-banner.jpg">
+{% endblock %}
 
-  <!-- Twitter Meta Tags -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="JoshAtticus Blog">
-  <meta name="twitter:description" content="Personal blog of JoshAtticus featuring tech, programming, and more.">
-  <meta name="twitter:image" content="https://blog.joshattic.us/assets/default-banner.jpg">
+{% block content %}
+<div class="post-grid">
+  {% for post in posts %}
+  <article>
+    <div class="post-card">
+      <div class="card-image">
+        <img src="/{{ post.image }}" alt="{{ post.title }} featured image">
+        <div class="card-title-overlay">
+          <h2><a href="/posts/{{ post.slug }}">{{ post.title }}</a></h2>
+          <div class="date">{{ post.date }}</div>
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="card-summary">
+          {{ post.summary }}
+        </div>
+        {% if post.tags %}
+        <div class="tags">
+          {% for tag in post.tags %}
+          <a href="/tags/{{ tag|lower|replace(' ', '-') }}" class="tag">{{ tag }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
 
-  <script defer data-domain="blog.joshattic.us"
-    src="https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js"></script>
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}
+  <a href="/?page={{ page - 1 }}" class="pagination-btn">← Previous</a>
+  {% else %}
+  <span class="pagination-btn disabled">← Previous</span>
+  {% endif %}
 
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2122521845436476"
-    crossorigin="anonymous"></script>
-</head>
-
-<body>
-  <div class="reading-progress-container">
-    <div class="reading-progress" id="reading-progress"></div>
+  <div class="pagination-numbers">
+    {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}
+    <span class="pagination-number active">{{ p }}</span>
+    {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %} <a href="/?page={{ p }}"
+      class="pagination-number">{{ p }}</a>
+      {% elif p == page - 3 or p == page + 3 %}
+      <span class="pagination-ellipsis">...</span>
+      {% endif %}
+      {% endfor %}
   </div>
 
-  <header>
-    <h1><a href="/">JoshAtticus Blog</a></h1>
-
-    <nav class="nav">
-      <a href="/tags">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M3 2v6h6V2H3zm2 2h2v2H5V4zm8-2v6h6V2h-6zm2 2h2v2h-2V4zM3 12v6h6v-6H3zm2 2h2v2H5v-2zm13-2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-4zm0 2h4v2h-4v-2z" />
-        </svg>
-        Tags
-      </a>
-      <a href="/search">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-8 6a8 8 0 1 1 14.32 4.906l5.387 5.387a1 1 0 0 1-1.414 1.414l-5.387-5.387A8 8 0 0 1 2 10z" />
-        </svg>
-        Search
-      </a>
-      <a href="#" id="account-btn" class="account-btn">
-        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-        </svg>
-        Account
-      </a>
-    </nav>
-  </header>
-
-  <main>
-    <div class="post-grid">
-      {% for post in posts %}
-      <article>
-        <div class="post-card">
-          <div class="card-image">
-            <img src="/{{ post.image }}" alt="{{ post.title }} featured image">
-            <div class="card-title-overlay">
-              <h2><a href="/posts/{{ post.slug }}">{{ post.title }}</a></h2>
-              <div class="date">{{ post.date }}</div>
-            </div>
-          </div>
-          <div class="card-content">
-            <div class="card-summary">
-              {{ post.summary }}
-            </div>
-            {% if post.tags %}
-            <div class="tags">
-              {% for tag in post.tags %}
-              <a href="/tags/{{ tag|lower|replace(' ', '-') }}" class="tag">{{ tag }}</a>
-              {% endfor %}
-            </div>
-            {% endif %}
-          </div>
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-
-    {% if total_pages > 1 %}
-    <div class="pagination">
-      {% if page > 1 %}
-      <a href="/?page={{ page - 1 }}" class="pagination-btn">← Previous</a>
-      {% else %}
-      <span class="pagination-btn disabled">← Previous</span>
-      {% endif %}
-
-      <div class="pagination-numbers">
-        {% for p in range(1, total_pages + 1) %}
-        {% if p == page %}
-        <span class="pagination-number active">{{ p }}</span>
-        {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %} <a href="/?page={{ p }}"
-          class="pagination-number">{{ p }}</a>
-          {% elif p == page - 3 or p == page + 3 %}
-          <span class="pagination-ellipsis">...</span>
-          {% endif %}
-          {% endfor %}
-      </div>
-
-      {% if page < total_pages %} <a href="/?page={{ page + 1 }}" class="pagination-btn">Next →</a>
-        {% else %}
-        <span class="pagination-btn disabled">Next →</span>
-        {% endif %}
-    </div>
+  {% if page < total_pages %} <a href="/?page={{ page + 1 }}" class="pagination-btn">Next →</a>
+    {% else %}
+    <span class="pagination-btn disabled">Next →</span>
     {% endif %}
-  </main>
-  <footer>© 2023 - {{ year }} JoshAtticus | <a href="/feed.rss">RSS Feed</a></footer>
+</div>
+{% endif %}
+{% endblock %}
 
-  <script src="/static/js/modal.js"></script>
-  <script src="/static/js/common.js"></script>
-  <script src="/static/js/index.js"></script>
-</body>
-
-</html>
+{% block scripts %}
+<script src="/static/js/index.js"></script>
+{% endblock %}

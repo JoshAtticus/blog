@@ -82,6 +82,10 @@ SUSPICIOUS_ERROR_LIMIT = 10
 SUSPICIOUS_ERROR_WINDOW = 60  # 1 minute
 SUSPICIOUS_BLOCK_DURATION = 3600  # 1 hour
 
+@app.context_processor
+def inject_year():
+    return {'year': datetime.now().year}
+
 # Database initialization
 def init_db():
     """Initialize the database with required tables"""
@@ -1503,6 +1507,10 @@ def admin_panel():
     if not user or not user.get('is_admin'):
         return redirect(url_for('index'))
     return render_template('admin.html')
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
 
 @app.route('/api/admin/users')
 def admin_users():

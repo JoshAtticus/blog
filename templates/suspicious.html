@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Suspicious Activity Detected - JoshAtticus Blog</title>
-  <link rel="stylesheet" href="/style.css">
+{% block title %}Suspicious Activity Detected - JoshAtticus Blog{% endblock %}
+
+{% block meta %}
   <style>
     .error-container {
       text-align: center;
@@ -40,14 +37,9 @@
       color: #888;
     }
   </style>
-</head>
+{% endblock %}
 
-<body>
-  <header>
-    <h1><a href="/">JoshAtticus Blog</a></h1>
-  </header>
-
-  <main>
+{% block content %}
     <div class="error-container">
       <h1 class="error-title">Suspicious Activity Detected</h1>
       <p class="error-message">
@@ -55,7 +47,4 @@
       </p>
       <p class="retry-message">If you believe this is a mistake, please try again later.</p>
     </div>
-  </main>
-</body>
-
-</html>
+{% endblock %}

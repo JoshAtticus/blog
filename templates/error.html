@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ error_code }} - JoshAtticus Blog</title>
-  <link rel="stylesheet" href="/style.css">
+{% block title %}{{ error_code }} - JoshAtticus Blog{% endblock %}
+
+{% block meta %}
   <style>
     .error-container {
       text-align: center;
@@ -50,14 +47,9 @@
       background-color: #444;
     }
   </style>
-</head>
+{% endblock %}
 
-<body>
-  <header>
-    <h1><a href="/">JoshAtticus Blog</a></h1>
-  </header>
-
-  <main>
+{% block content %}
     <div class="error-container">
       <span class="error-icon">:(</span>
       <h1 class="error-title">{{ error_code }} - {{ error_title }}</h1>
@@ -66,7 +58,4 @@
       </p>
       <a href="/" class="home-link">Return Home</a>
     </div>
-  </main>
-</body>
-
-</html>
+{% endblock %}
