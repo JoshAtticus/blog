@@ -8,6 +8,7 @@ import uuid
 import hashlib
 import threading
 import requests
+import fcntl
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session
 from cachelib import SimpleCache
@@ -921,16 +922,40 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         print(f"Error syncing wasteof comments for {post_slug}: {e}")
 
 def run_wasteof_sync():
+    # Use a lock file to ensure only one worker runs the sync
+    lock_file_path = '/tmp/wasteof_sync.lock'
+    try:
+        f = open(lock_file_path, 'w')
+    except IOError:
+        print("Could not open lock file for sync")
+        return
+
     while True:
         try:
-            posts = get_all_posts()
-            for post in posts:
-                if post.get('wasteof_link'):
-                    sync_wasteof_comments(post['slug'], post['wasteof_link'])
+            # Try to acquire an exclusive non-blocking lock
+            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             
-            time.sleep(900) # 15 minutes
+            # If we are here, we have the lock
+            try:
+                print("Starting wasteof.money sync...")
+                posts = get_all_posts()
+                for post in posts:
+                    if post.get('wasteof_link'):
+                        sync_wasteof_comments(post['slug'], post['wasteof_link'])
+                print("Wasteof.money sync completed.")
+            except Exception as e:
+                print(f"Error in wasteof sync loop: {e}")
+            
+            # Sleep for 15 minutes while holding the lock
+            # This prevents other workers from taking over
+            time.sleep(900) 
+            
+        except IOError:
+            # Could not acquire lock, another worker is syncing
+            # Sleep a bit and try again later
+            time.sleep(60)
         except Exception as e:
-            print(f"Error in wasteof sync loop: {e}")
+            print(f"Unexpected error in sync thread: {e}")
             time.sleep(60)
 
 def start_wasteof_sync_thread():
@@ -1905,8 +1930,16 @@ def method_not_allowed(e):
         error_description="The method is not allowed for the requested URL."
     ), 405
 
+# Initialize DB and start sync thread when imported (e.g. by Gunicorn)
+# We use a lock in run_wasteof_sync to ensure only one worker runs the sync
+if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # Avoid running twice in Flask debug mode reloader
+    try:
+        init_db()
+        start_wasteof_sync_thread()
+    except Exception as e:
+        print(f"Failed to init: {e}")
+
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
-    init_db()
-    start_wasteof_sync_thread()
+    # init_db and start_wasteof_sync_thread are already called above
     app.run(port=5001)
