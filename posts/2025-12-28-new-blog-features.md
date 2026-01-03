@@ -4,7 +4,7 @@ date: 2025-12-28
 tags: General, Off-topic, Technical
 ---
 
-![New features hero](assets/new-features-2025-12-27-hero.png)
+![New features hero](assets/2025-12-28-new-blog-features/new-features-2025-12-27-hero.png)
 
 Hey everyone! I know I haven't posted much this year :(
 

@@ -739,6 +739,54 @@ def clean_for_summary(html_content):
     text = re.sub(r"<[^>]+>", "", html_content)
     return text.strip()
 
+def process_image_comparison(html_content):
+    """
+    Replaces [[compare: left_image | right_image | caption]] with HTML for comparison slider.
+    Caption is optional.
+    Handles potential <p> wrappers added by Markdown.
+    """
+    pattern = r'(?:<p>\s*)?\[\[compare:\s*(.*?)\s*\|\s*(.*?)(?:\s*\|\s*(.*?))?\]\](?:\s*</p>)?'
+    
+    def repl(match):
+        left_img = match.group(1)
+        right_img = match.group(2)
+        caption = match.group(3) if match.group(3) else ""
+        
+        html = f'''
+        <div class="comparison-container">
+          <div class="comparison-inner">
+            <img class="comparison-image-under" src="{left_img}" alt="">
+            <img class="comparison-image-over" src="{right_img}" alt="">
+            <div class="comparison-slider">
+              <div class="comparison-handle"></div>
+            </div>
+          </div>
+          <div class="comparison-caption">{caption}</div>
+        </div>
+        '''
+        return html
+
+    return re.sub(pattern, repl, html_content)
+
+def process_twitter_embed(html_content):
+    """
+    Replaces [[twitter: url]] with Twitter embed HTML.
+    """
+    pattern = r'(?:<p>\s*)?\[\[twitter:\s*(.*?)\]\](?:\s*</p>)?'
+    
+    def repl(match):
+        url = match.group(1).strip()
+        
+        html = f'''
+        <blockquote class="twitter-tweet" data-dnt="true" data-theme="dark">
+          <a href="{url}">Loading Twitter embed, if it's not loading, click here to open the post in a new tab</a>
+        </blockquote>
+        <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+        '''
+        return html
+
+    return re.sub(pattern, repl, html_content)
+
 def get_all_posts():
     """Get all posts with their metadata"""
     posts = cache.get('all_posts')
@@ -757,6 +805,8 @@ def get_all_posts():
             
             html_content = markdown.markdown(content_without_front_matter, extensions=MD_EXTENSIONS)
             html_content = enforce_link_target_blank(html_content)
+            html_content = process_image_comparison(html_content)
+            html_content = process_twitter_embed(html_content)
             
             first_image, content_without_first_image = extract_and_remove_first_image(html_content)
             
@@ -1564,6 +1614,10 @@ def admin_reply_to_comment():
 @app.route('/style.css')
 def style():
     return send_from_directory('.', 'style.css')
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 @app.route('/assets/<path:filename>')
 def serve_asset(filename):

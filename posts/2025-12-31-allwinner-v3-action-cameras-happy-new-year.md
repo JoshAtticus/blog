@@ -5,7 +5,7 @@ tags: General, Hardware, Software, Allwinner, Cameras, China, Android, Linux, Te
 summary: Happy new year! For the final blog post of 2025, I decided to post about my custom firmware for terrible action cameras! Enjoy :)
 ---
 
-![Allwinner V3 action camera in front of a computer](assets/PXL_20251225_081037921.jpg)
+![Allwinner V3 action camera in front of a computer](assets/2025-12-31-allwinner-v3-action-cameras-happy-new-year/PXL_20251225_081037921.jpg)
 
 Hey everyone! Happy new year! Recently, I acquired a very strange device, a "4K" action camera that runs Android?? Kind of.
 

@@ -4,7 +4,7 @@ date: 2025-04-12
 tags: Android, Google, Smartphones, Warranty, Support, Hardware, Pixel
 ---
 
-![Google Pixel 8 Pro face down on carpet](assets/P1000003.JPG)
+![Google Pixel 8 Pro face down on carpet](assets/2025-04-12-google-pixel-warranty/P1000003.JPG)
 
 Since my Pixel 8 Pro's screen suddenly stopped working a few weeks ago and I had to switch back to my old Galaxy S9 (story for another time), I've already gotten my replacement Pixel 8 Pro from Google and wanted to share my experience with Google Support and Google Pixel warranty.
 
@@ -25,7 +25,7 @@ While I originally intended to actually go to the courier and ship my phone out,
 
 Literally 4 hours after my phone was collected, I get an email saying they've gotten my phone and approved the warranty replacement, so I guess Google doesn't even check that I even shipped a phone because there's no way they got it from Australia to Hong Kong in 4 hours.
 
-![Warranty Replacement Shipment Status](assets/image.png)
+![Warranty Replacement Shipment Status](assets/2025-04-12-google-pixel-warranty/image.png)
 
 Google shipped the replacement phone through Australia Post, who said it would arrive in 1 day, so of course I ended up getting my phone in 5 days instead (typical Australia Post activities).
 
