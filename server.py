@@ -869,6 +869,9 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
             data = resp.json()
             for reply in data.get('comments', []):
                 process_wasteof_comment(cursor, post_slug, reply, comment_id)
+                # Recursively fetch replies to replies
+                if reply.get('hasReplies'):
+                    fetch_wasteof_replies(cursor, post_slug, reply['_id'])
             
             if data.get('last', True):
                 break
@@ -943,9 +946,21 @@ def run_wasteof_sync():
             try:
                 print("Starting wasteof.money sync...")
                 posts = get_all_posts()
+                cutoff_date = datetime.now() - timedelta(days=90)
                 for post in posts:
                     if post.get('wasteof_link'):
-                        sync_wasteof_comments(post['slug'], post['wasteof_link'])
+                        should_sync = False
+                        try:
+                            # Parse post date (YYYY-MM-DD)
+                            post_date = datetime.strptime(post['date'], "%Y-%m-%d")
+                            if post_date > cutoff_date:
+                                should_sync = True
+                        except (ValueError, TypeError):
+                            # If date parsing fails, default to syncing to be safe
+                            should_sync = True
+                            
+                        if should_sync:
+                            sync_wasteof_comments(post['slug'], post['wasteof_link'])
                 print("Wasteof.money sync completed.")
             except Exception as e:
                 print(f"Error in wasteof sync loop: {e}")
