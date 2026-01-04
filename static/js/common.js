@@ -120,3 +120,34 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+// Privacy Notice (Cookie Consent)
+document.addEventListener('DOMContentLoaded', function() {
+    const banner = document.getElementById('privacy-notice');
+    const acceptBtn = document.getElementById('privacy-accept');
+    
+    if (!banner) return;
+
+    if (!localStorage.getItem('privacyConsent')) {
+        try {
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const isEU = timeZone.startsWith('Europe/') || 
+                         ['Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores'].includes(timeZone);
+            const isCalifornia = timeZone === 'America/Los_Angeles';
+            
+            if (isCalifornia || isEU) {
+                console.log("Cookie consent region detected")
+                banner.style.display = 'flex';
+            }
+        } catch (e) {
+            console.log('Timezone detection failed:', e);
+        }
+    }
+    
+    if (acceptBtn) {
+        acceptBtn.addEventListener('click', function() {
+            localStorage.setItem('privacyConsent', 'true');
+            banner.style.display = 'none';
+        });
+    }
+});

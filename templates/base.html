@@ -51,7 +51,12 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer>© 2023 - {{ year }} JoshAtticus | <a href="/feed.rss">RSS Feed</a></footer>
+    <footer>© 2023 - {{ year }} JoshAtticus | <a href="/feed.rss">RSS Feed</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/contact">Contact</a></footer>
+
+    <div id="privacy-notice" class="privacy-notice" style="display: none;">
+        <p>This site uses cookies to determine how many unique users are viewing our posts. More information in our <a href="/privacy">Privacy Policy</a>.</p>
+        <button id="privacy-accept">Got it</button>
+    </div>
 
     <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>

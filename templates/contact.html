@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Contact - JoshAtticus Blog{% endblock %}
+{% block title %}Terms of Service - JoshAtticus Blog{% endblock %}
 
 {% block content %}
-        <section class="contact-section">
-            <h1>Contact</h1>
-            <p>Have a question, suggestion, or just want to say hello? Feel free to reach out!</p>
+<div class="post-container">
+    <header style="margin-bottom: 2rem; border-bottom: 1px solid #333; padding-bottom: 1rem;">
+        <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">Contact</h1>
+    </header>
+
+    <div class="content">
+        <p>Have a question, suggestion, or just want to say hello? Feel free to reach out!</p>
 
             <h2>Email</h2>
             <p>The best way to contact me is by email:</p>
@@ -29,5 +33,6 @@
             <h2>Other</h2>
             <p>If you have a business inquiry, collaboration idea, or want to report a bug/security issue, please
                 include details in your message for a faster response.</p>
-        </section>
+    </div>
+</div>
 {% endblock %}

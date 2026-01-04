@@ -1877,6 +1877,53 @@ def serve_post_specific_asset(post_slug, filename):
         return app.response_class(image_data, mimetype=mimetype)
     return send_from_directory(dir_path, filename)
 
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/sitemap.xml')
+def sitemap():
+    posts = get_all_posts()
+    base_url = "https://blog.joshattic.us"
+    
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    
+    # Static pages
+    static_pages = [
+        {'loc': '/', 'changefreq': 'daily', 'priority': '1.0'},
+        {'loc': '/tags', 'changefreq': 'weekly', 'priority': '0.8'},
+        {'loc': '/search', 'changefreq': 'monthly', 'priority': '0.5'},
+        {'loc': '/privacy', 'changefreq': 'yearly', 'priority': '0.3'},
+        {'loc': '/terms', 'changefreq': 'yearly', 'priority': '0.3'},
+    ]
+    
+    for page in static_pages:
+        xml += '  <url>\n'
+        xml += f'    <loc>{base_url}{page["loc"]}</loc>\n'
+        xml += f'    <changefreq>{page["changefreq"]}</changefreq>\n'
+        xml += f'    <priority>{page["priority"]}</priority>\n'
+        xml += '  </url>\n'
+    
+    # Posts
+    for post in posts:
+        xml += '  <url>\n'
+        xml += f'    <loc>{base_url}/posts/{post["slug"]}</loc>\n'
+        xml += f'    <lastmod>{post["date"]}</lastmod>\n'
+        xml += '    <changefreq>monthly</changefreq>\n'
+        xml += '    <priority>0.7</priority>\n'
+        xml += '  </url>\n'
+        
+    xml += '</urlset>'
+    
+    response = make_response(xml)
+    response.headers["Content-Type"] = "application/xml"
+    return response
+
 @app.route('/feed.rss')
 def rss_feed():
     """Generate an RSS feed of blog posts"""
