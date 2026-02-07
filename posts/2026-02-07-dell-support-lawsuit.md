@@ -1,5 +1,5 @@
 ---
-title: Dell support (and hardware) is so bad—I almost sued them 
+title: Dell support (and hardware) is so bad, I almost sued them 
 date: 2026-02-07
 tags: General, Hardware, Dell, Support, Warranty, Law, Laptops
 ---
@@ -10,7 +10,7 @@ Yes, you read that title right. Dell's support team is TERRIBLE. They're simply 
 
 13 months ago, the 1st of January 2025, I got pissed off enough over the Windows Hello Face Unlock feature on my XPS 9500 not working after a firmware update from Dell killed it. Contacting Dell? Easier said than done. Their support website is a mess, and at the time, after navigating through a labyrinth of "have you tried turning it off and on agains", I was finally at their support page. Just one small problem, the ONLY way you could contact Dell at the time was if you were paying for one of their "Premium Support" extended warranty packages. Didn't buy one? Fuck you, the only option you get is Twitter support.
 
-> For non-Australian readers, this isn't just annoying—it's illegal. Under the Australian Consumer Law, you cannot hide a consumer's statutory right to a remedy behind a paywall.
+> For non-Australian readers, this isn't just annoying, it's illegal. Under the Australian Consumer Law, you cannot hide a consumer's statutory right to a remedy behind a paywall.
 
 <!-- <blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><p lang="en" dir="ltr">I am so fucking tired of <a href="https://twitter.com/Dell?ref_src=twsrc%5Etfw">@Dell</a>&#39;s shitty laptops, I paid around $3k for an XPS 15 back in 2021, and dell gave me probably the worst laptop I have ever used, I have put up with this for long enough, first they released a fault update that broke windows hello permanently (1/5)</p>&mdash; Josh (old account) (@AoshJatticus) <a href="https://twitter.com/AoshJatticus/status/1874351035818664505?ref_src=twsrc%5Etfw">January 1, 2025</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script> -->
 
@@ -127,7 +127,7 @@ To which I replied with:
 
 > Please have the Refund Team send the confirmation email immediately so we can finalise this.
 
-My reasoning for explicitly stating these terms is that I did not trust Dell to not pull a fast one on me. Should they take my laptop and **not** honour these terms, I could sue them for unlawful retention of property and breach of contract—even easier to win than my original case.
+My reasoning for explicitly stating these terms is that I did not trust Dell to not pull a fast one on me. Should they take my laptop and **not** honour these terms, I could sue them for unlawful retention of property and breach of contract, even easier to win than my original case.
 
 So, where does that leave us?
 
