@@ -5,7 +5,7 @@ tags: General, Hardware, Dell, Support, Warranty, Law, Laptops
 wasteof_link: https://wasteof.money/posts/69870bc99d1ab7036e534d96
 ---
 
-![Dell XPS 9500 Laptop in warm LED lighting](assets/2025-12-26-dell-support-lawsuit/beat-dell-hero.png)
+![Dell XPS 9500 Laptop in warm LED lighting](assets/2025-12-26-dell-support-lawsuit/beat-dell-hero.jpeg)
 
 Yes, you read that title right. Dell's support team is TERRIBLE. They're simply unable to grasp Australian Consumer Law, and I am fed up, but first, some backstory (also apologies for all the red flags):
 
