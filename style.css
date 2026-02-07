@@ -1638,3 +1638,56 @@ footer {
         padding: 1rem 0.5rem;
     }
 }
+
+/* Comparison Controls */
+.comparison-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  background: #222;
+  padding: 8px 12px;
+  border-radius: 20px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.comp-play-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comp-play-btn:hover {
+  color: #ddd;
+}
+
+.comp-progress-container {
+  width: 200px;
+  height: 6px;
+  background: #444;
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.comp-progress-bar {
+  height: 100%;
+  background: #fff;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+@media (max-width: 600px) {
+    .comp-progress-container {
+        width: 120px;
+    }
+}

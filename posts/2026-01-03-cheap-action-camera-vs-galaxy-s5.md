@@ -1,7 +1,7 @@
 ---
 title: Cheap action camera with 2014 sensor vs 2014 flagship smartphone (Camera Comparison)
 date: 2026-01-03
-tags: General, Tech
+tags: General, Tech, Cameras, Allwinner, Smartphones, China, Samsung, Android, Photography, Comparison
 summary: The Allwinner V3 action camera we looked at in the previous blog post had a Sony IMX175, a camera sensor from around 2014, so how does it hold up against a 2014 flagship smartphone?
 wasteof_link: https://wasteof.money/posts/6958c03d6883bd038172e31b
 ---

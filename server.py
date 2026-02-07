@@ -11,28 +11,26 @@ import requests
 import fcntl
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session
-from cachelib import SimpleCache
+from cachelib import FileSystemCache
 from PIL import Image
 import io
 from feedgen.feed import FeedGenerator
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
+import html
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-# Fix for HTTPS behind reverse proxy (Coolify/Docker)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = True # Should be True in production
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# OAuth Configuration
 oauth = OAuth(app)
 
 # Google OAuth
@@ -68,8 +66,8 @@ oauth.register(
     client_kwargs={'scope': 'name email profile_picture'}
 )
 
-cache = SimpleCache()
 CACHE_TIMEOUT = 60 * 60 
+cache = FileSystemCache('flask_cache', threshold=500, default_timeout=CACHE_TIMEOUT)
 POSTS_DIR = "posts"
 DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 
@@ -83,19 +81,33 @@ SUSPICIOUS_ERROR_WINDOW = 60  # 1 minute
 SUSPICIOUS_BLOCK_DURATION = 3600  # 1 hour
 
 @app.context_processor
-def inject_year():
-    return {'year': datetime.now().year}
+def inject_globals():
+    # GDPR (EU + UK) list
+    privacy_countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'UK']
+    
+    # Get country from Cloudflare header
+    country = request.headers.get('CF-IPCountry', '').upper()
+    
+    # Show in EU/UK or US (for California)
+    # If header is missing (e.g. local dev), default to False or maybe True depending on preference.
+    # Here defaulting to False to avoid annoyance during dev, can be forced for testing.
+    is_privacy_region = country in privacy_countries or country == 'US' or os.environ.get('FORCE_PRIVACY_BANNER') == 'true'
+    
+    return {
+        'year': datetime.now().year,
+        'is_privacy_region': is_privacy_region
+    }
 
-# Database initialization
 def init_db():
     """Initialize the database with required tables"""
-    # Ensure the directory for the database exists
+    # if the db dir doesn't exist, explode /j
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    cursor.execute('PRAGMA journal_mode=WAL;')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS post_views (
             slug TEXT PRIMARY KEY,
@@ -129,12 +141,10 @@ def init_db():
         )
     ''')
 
-    # Migration: Add event_type column if it doesn't exist
     try:
         cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN event_type TEXT DEFAULT "view"')
     except sqlite3.OperationalError:
-        pass # Column likely exists
-    # Migration: Add platform column if it doesn't exist
+        pass
     try:
         cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN platform TEXT')
     except sqlite3.OperationalError:
@@ -166,7 +176,6 @@ def init_db():
         ON comments(slug, created_at)
     ''')
     
-    # Users table for authentication
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,13 +191,11 @@ def init_db():
         )
     ''')
     
-    # Migration: Add email_verified column if it doesn't exist
     try:
         cursor.execute('ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0')
     except sqlite3.OperationalError:
         pass
 
-    # Migration: Add is_deleted and edited_at to comments
     try:
         cursor.execute('ALTER TABLE comments ADD COLUMN is_deleted BOOLEAN DEFAULT 0')
     except sqlite3.OperationalError:
@@ -198,7 +205,6 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    # Migration: Add wasteof.money integration columns
     try:
         cursor.execute('ALTER TABLE comments ADD COLUMN source TEXT DEFAULT "local"')
     except sqlite3.OperationalError:
@@ -212,7 +218,6 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    # Comment history table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comment_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,32 +231,26 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Initialize the database when the module is loaded
 init_db()
 
 @app.before_request
 def check_suspicious_block():
-    # Get client IP (ProxyFix middleware handles X-Forwarded-For)
     ip = request.remote_addr
         
-    # Check if IP is blocked
     if cache.get(f'blocked_{ip}'):
         return render_template('suspicious.html'), 403
 
 @app.after_request
 def monitor_suspicious_activity(response):
-    # Monitor 4xx and 5xx errors, excluding 401/403 (auth issues)
     if response.status_code >= 400 and response.status_code not in [401, 403]:
-        # Get client IP
         ip = request.remote_addr
         
-        # Increment error count
         error_key = f'errors_{ip}'
         errors = cache.get(error_key) or 0
         errors += 1
         cache.set(error_key, errors, timeout=SUSPICIOUS_ERROR_WINDOW)
         
-        # Check if limit exceeded
+        # kill spammers with hammers (looking at you fucking seo bots)
         if errors >= SUSPICIOUS_ERROR_LIMIT:
             cache.set(f'blocked_{ip}', True, timeout=SUSPICIOUS_BLOCK_DURATION)
             
@@ -319,7 +318,7 @@ def auth_callback(provider):
         oauth_id = str(user_info.get('id'))
         name = user_info.get('name') or user_info.get('login')
         picture = user_info.get('avatar_url')
-        # GitHub email might be private
+        # guthib email might be private, if so explode /j
         email_resp = client.get('user/emails')
         if email_resp.status_code == 200:
             emails = email_resp.json()
@@ -330,7 +329,7 @@ def auth_callback(provider):
                     break
                     
     elif provider == 'joshatticus':
-        # Don't use OpenID claims (id_token), use OAuth2 claims (userinfo endpoint)
+        # i HATE openid so much it's a scam i wasted 30 minutes on ts
         user_info = client.userinfo()
         
         oauth_id = user_info.get('sub')
@@ -349,11 +348,10 @@ def auth_callback(provider):
     if not oauth_id:
         return "Could not retrieve user information", 400
         
-    # Save or update user in database
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Check if user exists
+    # do you exist?
     cursor.execute('SELECT id FROM users WHERE oauth_provider = ? AND oauth_id = ?', (provider, oauth_id))
     existing_user = cursor.fetchone()
     
@@ -365,7 +363,7 @@ def auth_callback(provider):
             WHERE id = ?
         ''', (email, email_verified, name, picture, user_id))
     else:
-        # Check if this is the first user (make admin)
+        # Check if this is the first user (make admin) (yes horribly insecure womp womp cry about it if anyone signs up before me i would just delete the database)
         cursor.execute('SELECT COUNT(*) FROM users')
         count = cursor.fetchone()[0]
         is_admin = 1 if count == 0 else 0
@@ -442,7 +440,6 @@ def hash_ip(ip_address):
 def get_client_ip():
     """Get client IP address, considering X-Forwarded-For header"""
     if 'X-Forwarded-For' in request.headers:
-        # Get the first IP in the chain (original client)
         return request.headers['X-Forwarded-For'].split(',')[0].strip()
     return request.remote_addr or ''
 
@@ -451,7 +448,6 @@ def check_ip_rate_limit(slug, ip_hash):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Get views from this IP in the last 30 days
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute('''
         SELECT COUNT(*) FROM analytics_pageviews 
@@ -524,13 +520,14 @@ def increment_shares_count(slug):
     
     # Log analytics event
     # We might not have request context here if called from background, but usually it is from request
+    # idfk why we wouldn't have it tho
     try:
         user_id = request.cookies.get('blog_user_id') or 'unknown'
         ip_hash = hash_ip(get_client_ip())
         platform = request.args.get('platform') or request.form.get('platform') or request.json.get('platform') if request.is_json else None
         log_analytics_view(slug, user_id, ip_hash, request.user_agent.string, request.referrer, 'share', platform)
     except Exception:
-        pass # Fail silently if outside request context
+        pass
 
 def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type='view', platform=None):
     """Log a page view or event for analytics"""
@@ -544,14 +541,11 @@ def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type=
     conn.close()
 
 
-# --- Share analytics via bot user agent detection ---
 @app.before_request
 def auto_log_share_from_bot():
-    # Only log for GET requests to post pages
     if request.method != 'GET':
         return
     path = request.path
-    # crude check for post URL, adjust if needed
     if path.startswith('/posts/') and not path.endswith('-assets') and '.' not in path.split('/')[-1]:
         user_agent = request.user_agent.string
         platform = get_share_platform_from_user_agent(user_agent)
@@ -559,7 +553,6 @@ def auto_log_share_from_bot():
             slug = path.split('/posts/')[-1]
             user_id = request.cookies.get('blog_user_id') or 'unknown'
             ip_hash = hash_ip(get_client_ip())
-            # Only log if not already logged in this session for this slug/platform
             key = f'sharebot_{slug}_{platform}'
             if not cache.get(key):
                 log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer, 'share', platform)
@@ -654,7 +647,6 @@ def generate_image_sizes(image_path):
             
             img = Image.open(image_path)
             
-            # Calculate resize ratio
             ratio = min(width / img.width, 1.0)
             new_width = int(img.width * ratio)
             new_height = int(img.height * ratio)
@@ -701,12 +693,10 @@ def parse_front_matter(content):
         if date_match:
             front_matter['date'] = date_match.group(1).strip()
         
-        # Parse custom summary if provided
         summary_match = re.search(r"summary:\s*(.*)", front_matter_text)
         if summary_match:
             front_matter['summary'] = summary_match.group(1).strip()
         
-        # Parse wasteof.money link
         wasteof_match = re.search(r"wasteof_link:\s*(.*)", front_matter_text)
         if wasteof_match:
             front_matter['wasteof_link'] = wasteof_match.group(1).strip()
@@ -767,26 +757,52 @@ def clean_for_summary(html_content):
 
 def process_image_comparison(html_content):
     """
-    Replaces [[compare: left_image | right_image | caption]] with HTML for comparison slider.
+    Replaces [[compare: left_source | right_source | caption]] with HTML for comparison slider.
+    Supports images and videos.
     Caption is optional.
     Handles potential <p> wrappers added by Markdown.
     """
     pattern = r'(?:<p>\s*)?\[\[compare:\s*(.*?)\s*\|\s*(.*?)(?:\s*\|\s*(.*?))?\]\](?:\s*</p>)?'
     
+    def get_media_tag(src, class_name):
+        src = src.strip()
+        is_video = src.lower().endswith(('.mp4', '.webm', '.mov', '.ogg'))
+        if is_video:
+            return f'<video class="{class_name}" src="{src}" preload="metadata" muted playsinline></video>'
+        else:
+            return f'<img class="{class_name}" src="{src}" alt="">'
+
     def repl(match):
-        left_img = match.group(1)
-        right_img = match.group(2)
+        left_src = match.group(1)
+        right_src = match.group(2)
         caption = match.group(3) if match.group(3) else ""
+        left_tag = get_media_tag(left_src, "comparison-image-under")
+        right_tag = get_media_tag(right_src, "comparison-image-over")
+        has_video = any(src.strip().lower().endswith(('.mp4', '.webm', '.mov', '.ogg')) for src in [left_src, right_src])
+        
+        controls_html = ""
+        if has_video:
+            controls_html = '''
+            <div class="comparison-controls">
+                <button class="comp-play-btn" aria-label="Play">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <div class="comp-progress-container">
+                    <div class="comp-progress-bar"></div>
+                </div>
+            </div>
+            '''
         
         html = f'''
         <div class="comparison-container">
           <div class="comparison-inner">
-            <img class="comparison-image-under" src="{left_img}" alt="">
-            <img class="comparison-image-over" src="{right_img}" alt="">
+            {left_tag}
+            {right_tag}
             <div class="comparison-slider">
               <div class="comparison-handle"></div>
             </div>
           </div>
+          {controls_html}
           <div class="comparison-caption">{caption}</div>
         </div>
         '''
@@ -817,24 +833,19 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
     external_id = comment_data['_id']
     user_id = comment_data['poster']['id']
     author_name = comment_data['poster']['name']
-    content = comment_data['content'] # HTML content
+    content = comment_data['content']
     
-    # Strip HTML
+    # xss is bad actually
     content = re.sub(r'<br\s*/?>', '\n', content)
     content = re.sub(r'</p>', '\n\n', content)
     content = re.sub(r'<[^>]+>', '', content)
     content = content.strip()
-    
     created_at = datetime.fromtimestamp(comment_data['time'] / 1000, timezone.utc).isoformat()
-    
-    # Get avatar
     avatar_url = f"https://api.wasteof.money/users/{author_name}/picture"
     
-    # Check if exists
     cursor.execute('SELECT id FROM comments WHERE external_id = ?', (external_id,))
     existing = cursor.fetchone()
     
-    # Resolve parent_id
     parent_db_id = None
     if parent_external_id:
         cursor.execute('SELECT id FROM comments WHERE external_id = ?', (parent_external_id,))
@@ -843,14 +854,12 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
             parent_db_id = parent_row[0]
     
     if existing:
-        # Update
         cursor.execute('''
             UPDATE comments 
             SET comment_text = ?, author_name = ?, author_avatar_url = ?, parent_id = ?
             WHERE id = ?
         ''', (content, author_name, avatar_url, parent_db_id, existing[0]))
     else:
-        # Insert
         cursor.execute('''
             INSERT INTO comments (slug, user_id, author_name, comment_text, parent_id, created_at, ip_hash, source, external_id, author_avatar_url)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -869,7 +878,6 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
             data = resp.json()
             for reply in data.get('comments', []):
                 process_wasteof_comment(cursor, post_slug, reply, comment_id)
-                # Recursively fetch replies to replies
                 if reply.get('hasReplies'):
                     fetch_wasteof_replies(cursor, post_slug, reply['_id'])
             
@@ -883,7 +891,6 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
 def sync_wasteof_comments(post_slug, wasteof_link):
     """Sync comments from wasteof.money"""
     try:
-        # Extract post ID
         match = re.search(r'wasteof\.money/posts/([a-f0-9]+)', wasteof_link)
         if not match:
             print(f"Invalid wasteof link for {post_slug}: {wasteof_link}")
@@ -891,7 +898,6 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         
         post_id = match.group(1)
         
-        # Fetch comments
         comments = []
         page = 1
         headers = {
@@ -911,14 +917,12 @@ def sync_wasteof_comments(post_slug, wasteof_link):
                 print(f"Error fetching wasteof comments page {page}: {e}")
                 break
         
-        # Process comments
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         for comment in comments:
             process_wasteof_comment(cursor, post_slug, comment, None)
             
-            # Handle replies
             if comment.get('hasReplies'):
                 fetch_wasteof_replies(cursor, post_slug, comment['_id'])
         
@@ -929,7 +933,6 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         print(f"Error syncing wasteof comments for {post_slug}: {e}")
 
 def run_wasteof_sync():
-    # Use a lock file to ensure only one worker runs the sync
     lock_file_path = '/tmp/wasteof_sync.lock'
     try:
         f = open(lock_file_path, 'w')
@@ -939,10 +942,8 @@ def run_wasteof_sync():
 
     while True:
         try:
-            # Try to acquire an exclusive non-blocking lock
             fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             
-            # If we are here, we have the lock
             try:
                 print("Starting wasteof.money sync...")
                 posts = get_all_posts()
@@ -951,12 +952,10 @@ def run_wasteof_sync():
                     if post.get('wasteof_link'):
                         should_sync = False
                         try:
-                            # Parse post date (YYYY-MM-DD)
                             post_date = datetime.strptime(post['date'], "%Y-%m-%d")
                             if post_date > cutoff_date:
                                 should_sync = True
                         except (ValueError, TypeError):
-                            # If date parsing fails, default to syncing to be safe
                             should_sync = True
                             
                         if should_sync:
@@ -964,14 +963,10 @@ def run_wasteof_sync():
                 print("Wasteof.money sync completed.")
             except Exception as e:
                 print(f"Error in wasteof sync loop: {e}")
-            
-            # Sleep for 15 minutes while holding the lock
-            # This prevents other workers from taking over
             time.sleep(900) 
             
         except IOError:
-            # Could not acquire lock, another worker is syncing
-            # Sleep a bit and try again later
+
             time.sleep(60)
         except Exception as e:
             print(f"Unexpected error in sync thread: {e}")
@@ -1101,14 +1096,14 @@ def get_comments_for_post(slug, page=None, per_page=20):
     cursor = conn.cursor()
     
     if page:
-        # Count top-level comments
+        # count top-level comments
         cursor.execute('SELECT COUNT(*) FROM comments WHERE slug = ? AND parent_id IS NULL', (slug,))
         total_top_level = cursor.fetchone()[0]
         total_pages = (total_top_level + per_page - 1) // per_page if total_top_level > 0 else 1
         
         offset = (page - 1) * per_page
         
-        # Get top-level comments for this page
+        # get top-level comments for this page
         cursor.execute('''
             SELECT id
             FROM comments
@@ -1124,7 +1119,7 @@ def get_comments_for_post(slug, page=None, per_page=20):
              conn.close()
              return [], 1, 0
              
-        # Get full tree for these top-level comments using Recursive CTE
+        # get full tree for these top-level comments using Recursive CTE
         placeholders = ','.join(['?'] * len(top_level_ids))
         query = f'''
             WITH RECURSIVE comment_tree AS (
@@ -1166,7 +1161,7 @@ def edit_comment(comment_id, user_id, new_text):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Verify ownership
+    # you shall not edit other people's comments
     cursor.execute('SELECT user_id, comment_text FROM comments WHERE id = ?', (comment_id,))
     row = cursor.fetchone()
     if not row:
@@ -1180,11 +1175,9 @@ def edit_comment(comment_id, user_id, new_text):
     old_text = row[1]
     now = datetime.now().isoformat()
     
-    # Save history
     cursor.execute('INSERT INTO comment_history (comment_id, old_text, edited_at) VALUES (?, ?, ?)', 
                   (comment_id, old_text, now))
                   
-    # Update comment
     cursor.execute('UPDATE comments SET comment_text = ?, edited_at = ? WHERE id = ?', 
                   (new_text, now, comment_id))
                   
@@ -1196,7 +1189,7 @@ def delete_comment(comment_id, user_id, is_admin=False):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Verify ownership
+    # you shall not delete other people's comments unless admin
     cursor.execute('SELECT user_id FROM comments WHERE id = ?', (comment_id,))
     row = cursor.fetchone()
     if not row:
@@ -1289,33 +1282,22 @@ def post(slug):
     
     user_agent = request.headers.get('User-Agent', '')
     platform = get_share_platform_from_user_agent(user_agent)
-    # If it's a bot, increment shares count with platform
+    # if it's a bot, increment shares count with platform
     if platform:
-        increment_shares_count(slug)  # Optionally pass platform if you update increment_shares_count
+        increment_shares_count(slug)
     else:
-        # Get or create user ID from cookie
         user_id = request.cookies.get('blog_user_id')
         if not user_id:
             user_id = str(uuid.uuid4())
-        # Get client IP and hash it
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
-        
-        # Check if this user has viewed this post (before logging current view)
         has_viewed = has_user_viewed(slug, user_id)
-        
-        # Check IP rate limit
         within_rate_limit = check_ip_rate_limit(slug, ip_hash)
-        
-        # Log analytics view (every hit)
         log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer)
-        
-        # Only count view if user hasn't viewed AND IP is within rate limit
         if not has_viewed and within_rate_limit:
             increment_view_count(slug)
-            # record_user_view is handled by log_analytics_view now
     
-    # Get counts
+    # views & shares
     view_count = get_view_count(slug)
     shares_count = get_shares_count(slug)
     
@@ -1330,7 +1312,7 @@ def post(slug):
                           view_count=view_count,
                           shares_count=shares_count))
     
-    # Set user ID cookie if it doesn't exist (expires in 1 year)
+    # user id cookie
     if not platform and not request.cookies.get('blog_user_id'):
         expires = datetime.now() + timedelta(days=365)
         response.set_cookie('blog_user_id', user_id, expires=expires, httponly=True, samesite='Lax')
@@ -1416,7 +1398,7 @@ def comments_api(slug):
         user = get_current_user()
         is_admin = user and user.get('is_admin')
         
-        # Process comments to mask deleted ones
+        # hide deleted comments to normies
         for comment in comments:
             if comment['is_deleted']:
                 if not is_admin:
@@ -1434,45 +1416,43 @@ def comments_api(slug):
         })
     
     elif request.method == 'POST':
-        # Check authentication
+        # are you logged in?
         user = get_current_user()
         if not user:
             return jsonify({"error": "Authentication required"}), 401
             
-        # Check email verification
+        # check if email is verified (we can get this from joshatticusid and google, assume verified for github)
         if not user.get('email_verified'):
             return jsonify({"error": "Verified email required to comment"}), 403
             
         data = request.get_json()
         
-        # Use authenticated user info
+        # user info
         user_id = str(user['id'])
         author_name = user['name']
         
-        # Get IP and hash it
+        # ip hashes
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
         
-        # Rate limiting
+        # no spamming
         if not check_comment_rate_limit(user_id, ip_hash):
             return jsonify({"error": "Rate limit exceeded. Please wait before posting again."}), 429
             
-        # Reply rate limiting
         parent_id = data.get('parent_id')
         if parent_id and not check_reply_rate_limit(user_id, ip_hash):
              return jsonify({"error": "Reply rate limit exceeded. Please wait before replying again."}), 429
         
         comment_text = data.get('comment_text', '').strip()
         
-        # Validation
+        # no empty comments or word bombs
         if not comment_text:
             return jsonify({"error": "Comment text is required"}), 400
             
         if len(comment_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        # Security: Escape HTML and strip newlines
-        import html
+        # Security: kill html with hammers
         comment_text = html.escape(comment_text)
         comment_text = comment_text.replace('\n', ' ').replace('\r', '')
         
@@ -1498,7 +1478,6 @@ def comment_action_api(comment_id):
         if len(new_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        import html
         new_text = html.escape(new_text)
         new_text = new_text.replace('\n', ' ').replace('\r', '')
         
@@ -1600,7 +1579,6 @@ def admin_comments():
     comments = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
-    # Enrich comments with post info
     all_posts = get_all_posts()
     posts_map = {post['slug']: post for post in all_posts}
     
@@ -1608,7 +1586,6 @@ def admin_comments():
         post = posts_map.get(comment['slug'])
         if post:
             comment['post_title'] = post['title']
-            # Get first image or default
             if post.get('image'):
                 comment['post_image'] = post['image']
             else:
@@ -1633,28 +1610,22 @@ def analytics_overview():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Total views (all time)
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'view'")
     total_views = cursor.fetchone()[0]
     
-    # Total unique views (all time) - approximate by ip_hash
     cursor.execute("SELECT COUNT(DISTINCT ip_hash) FROM analytics_pageviews WHERE event_type = 'view'")
     total_unique_views = cursor.fetchone()[0]
     
-    # Total shares (all time)
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'share'")
     total_shares = cursor.fetchone()[0]
     
-    # Views last 30 days
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'view' AND viewed_at > ?", (thirty_days_ago,))
     views_30d = cursor.fetchone()[0]
     
-    # Unique visitors (last 30 days) - approximate by ip_hash
     cursor.execute("SELECT COUNT(DISTINCT ip_hash) FROM analytics_pageviews WHERE event_type = 'view' AND viewed_at > ?", (thirty_days_ago,))
     visitors_30d = cursor.fetchone()[0]
     
-    # Top posts (last 30 days)
     cursor.execute('''
         SELECT slug, COUNT(*) as count 
         FROM analytics_pageviews 
@@ -1667,7 +1638,6 @@ def analytics_overview():
     
     conn.close()
     
-    # Enrich top posts with titles
     all_posts = get_all_posts()
     posts_map = {post['slug']: post for post in all_posts}
     for p in top_posts:
@@ -1717,7 +1687,6 @@ def analytics_posts_list():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Get view counts per post
     cursor.execute('''
         SELECT slug, COUNT(*) as count 
         FROM analytics_pageviews 
@@ -1737,7 +1706,6 @@ def analytics_posts_list():
             "views": view_counts.get(post['slug'], 0)
         })
         
-    # Sort by date desc
     result.sort(key=lambda x: x['date'], reverse=True)
     
     return jsonify(result)
@@ -1751,11 +1719,9 @@ def analytics_post_detail(slug):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Total views for this post
     cursor.execute('SELECT COUNT(*) FROM analytics_pageviews WHERE slug = ?', (slug,))
     total_views = cursor.fetchone()[0]
     
-    # Views over time (last 30 days)
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
@@ -1803,13 +1769,10 @@ def admin_reply_to_comment():
     comment_text = data.get('comment_text', '').strip()
     if not (parent_id and slug and comment_text):
         return jsonify({"error": "Missing required fields"}), 400
-    # Use admin's user_id and name
     user_id = str(user['id'])
     author_name = user['name']
     client_ip = get_client_ip()
     ip_hash = hash_ip(client_ip)
-    # No rate limit for admin
-    import html
     comment_text = html.escape(comment_text).replace('\n', ' ').replace('\r', '')
     comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
     return jsonify({"success": True, "comment_id": comment_id})
@@ -1885,7 +1848,12 @@ def privacy():
 def terms():
     return render_template('terms.html')
 
+@app.route('/crazy')
+def crazy():
+    return render_template('crazy.html')
+
 @app.route('/sitemap.xml')
+# istg I made this fucking sitemap for google search console and it keeps saying it couldn't fetch it so I fucking give up
 def sitemap():
     posts = get_all_posts()
     base_url = "https://blog.joshattic.us"
@@ -1893,7 +1861,6 @@ def sitemap():
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     
-    # Static pages
     static_pages = [
         {'loc': '/', 'changefreq': 'daily', 'priority': '1.0'},
         {'loc': '/tags', 'changefreq': 'weekly', 'priority': '0.8'},
@@ -1909,7 +1876,6 @@ def sitemap():
         xml += f'    <priority>{page["priority"]}</priority>\n'
         xml += '  </url>\n'
     
-    # Posts
     for post in posts:
         xml += '  <url>\n'
         xml += f'    <loc>{base_url}/posts/{post["slug"]}</loc>\n'
@@ -2002,7 +1968,7 @@ def method_not_allowed(e):
 
 # Initialize DB and start sync thread when imported (e.g. by Gunicorn)
 # We use a lock in run_wasteof_sync to ensure only one worker runs the sync
-if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # Avoid running twice in Flask debug mode reloader
+if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # don't run twice in Flask debug mode reloader
     try:
         init_db()
         start_wasteof_sync_thread()

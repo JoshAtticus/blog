@@ -16,6 +16,10 @@
     <script defer data-domain="blog.joshattic.us" src="https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2122521845436476" crossorigin="anonymous"></script>
     
+    <script>
+        window.isPrivacyRegion = {{ is_privacy_region|tojson }};
+    </script>
+
     {% block head_scripts %}{% endblock %}
 </head>
 <body>

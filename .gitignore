@@ -15,6 +15,7 @@ ENV/
 # Database
 blog.db
 .env
+flask_cache/
 
 # crapOS
 .DS_Store

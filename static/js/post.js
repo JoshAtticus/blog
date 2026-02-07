@@ -591,6 +591,87 @@ function initComparisons() {
       slider.style.left = x + 'px';
     }
   });
+
+  // Video Comparison Logic
+  containers.forEach(container => {
+    const videos = Array.from(container.querySelectorAll('video'));
+    if (videos.length > 0) {
+        const playBtn = container.querySelector('.comp-play-btn');
+        const progressBar = container.querySelector('.comp-progress-bar');
+        const progressContainer = container.querySelector('.comp-progress-container');
+        
+        let masterVideo = videos[0];
+        
+        const setMaster = () => {
+             // Find shortest duration
+             masterVideo = videos.reduce((prev, curr) => prev.duration < curr.duration ? prev : curr);
+        };
+        
+        // Wait for metadata
+        let loaded = 0;
+        videos.forEach(v => {
+            if (v.readyState >= 1) {
+                loaded++;
+                if (loaded === videos.length) setMaster();
+            } else {
+                v.addEventListener('loadedmetadata', () => {
+                    loaded++;
+                    if (loaded === videos.length) setMaster();
+                });
+            }
+        });
+        
+        // Sync loop
+        const syncLoop = () => {
+            if (!masterVideo.duration) return;
+            
+            // Update progress
+            const percent = (masterVideo.currentTime / masterVideo.duration) * 100;
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            
+            // Check for end
+            if (masterVideo.ended || masterVideo.currentTime >= masterVideo.duration) {
+                videos.forEach(v => {
+                    v.currentTime = 0;
+                    v.play().catch(() => {});
+                });
+            }
+            
+            if (!videos[0].paused) {
+                requestAnimationFrame(syncLoop);
+            }
+        };
+
+        if (playBtn) {
+            playBtn.addEventListener('click', () => {
+                const isPaused = videos[0].paused;
+                if (isPaused) {
+                    videos.forEach(v => v.play());
+                    playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+                    syncLoop();
+                } else {
+                    videos.forEach(v => v.pause());
+                    playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+                }
+            });
+        }
+        
+        // Seek
+        if (progressContainer) {
+            progressContainer.addEventListener('click', (e) => {
+                const rect = progressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                if (masterVideo.duration) {
+                    const targetTime = pos * masterVideo.duration;
+                    videos.forEach(v => {
+                        v.currentTime = targetTime;
+                    });
+                    if (progressBar) progressBar.style.width = `${pos * 100}%`;
+                }
+            });
+        }
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
