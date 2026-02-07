@@ -2,6 +2,7 @@
 title: Dell support (and hardware) is so bad, I almost sued them 
 date: 2026-02-07
 tags: General, Hardware, Dell, Support, Warranty, Law, Laptops
+wasteof_link: https://wasteof.money/posts/69870bc99d1ab7036e534d96
 ---
 
 ![Dell XPS 9500 Laptop in warm LED lighting](assets/2025-12-26-dell-support-lawsuit/beat-dell-hero.png)
