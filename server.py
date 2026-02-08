@@ -95,7 +95,8 @@ def inject_globals():
     
     return {
         'year': datetime.now().year,
-        'is_privacy_region': is_privacy_region
+        'is_privacy_region': is_privacy_region,
+        'current_user': get_current_user()
     }
 
 def init_db():
@@ -193,6 +194,11 @@ def init_db():
     
     try:
         cursor.execute('ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0')
     except sqlite3.OperationalError:
         pass
 
@@ -1425,6 +1431,10 @@ def comments_api(slug):
         if not user.get('email_verified'):
             return jsonify({"error": "Verified email required to comment"}), 403
             
+        # check if banned
+        if user.get('is_banned'):
+            return jsonify({"error": "You are banned from commenting."}), 403
+
         data = request.get_json()
         
         # user info
@@ -1465,6 +1475,9 @@ def comment_action_api(comment_id):
     user = get_current_user()
     if not user:
         return jsonify({"error": "Authentication required"}), 401
+    
+    if user.get('is_banned'):
+        return jsonify({"error": "You are banned."}), 403
         
     user_id = str(user['id'])
     
@@ -1534,6 +1547,32 @@ def admin_users():
         "total_pages": total_pages,
         "total_users": total_users
     })
+
+@app.route('/api/admin/users/<int:user_id>/ban', methods=['POST'])
+def admin_ban_user(user_id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/users/<int:user_id>/unban', methods=['POST'])
+def admin_unban_user(user_id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
 
 @app.route('/api/admin/comments')
 def admin_comments():
@@ -1666,6 +1705,7 @@ def analytics_chart():
     cursor = conn.cursor()
     
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+    
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
         FROM analytics_pageviews 
@@ -1675,14 +1715,46 @@ def analytics_chart():
     ''', (thirty_days_ago,))
     daily_views = [{"date": row[0], "views": row[1]} for row in cursor.fetchall()]
     
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
+        FROM analytics_pageviews 
+        WHERE event_type = 'share' AND viewed_at > ?
+        GROUP BY day
+        ORDER BY day
+    ''', (thirty_days_ago,))
+    daily_shares = {row[0]: row[1] for row in cursor.fetchall()}
+    
     conn.close()
-    return jsonify(daily_views)
+    
+    final_data = {}
+    for item in daily_views:
+        final_data[item['date']] = {"date": item['date'], "views": item['views'], "shares": 0, "new_posts": []}
+        
+    for date, count in daily_shares.items():
+        if date not in final_data:
+            final_data[date] = {"date": date, "views": 0, "shares": count, "new_posts": []}
+        else:
+            final_data[date]["shares"] = count
+            
+    all_posts = get_all_posts()
+    for post in all_posts:
+        post_date = post['date']
+        if post_date in final_data:
+            final_data[post_date]['new_posts'].append(post['title'])
+        elif post_date >= thirty_days_ago[:10]:
+             final_data[post_date] = {"date": post_date, "views": 0, "shares": 0, "new_posts": [post['title']]}
+             
+    sorted_data = sorted(final_data.values(), key=lambda x: x['date'])
+    return jsonify(sorted_data)
 
 @app.route('/api/analytics/posts')
 def analytics_posts_list():
     user = get_current_user()
     if not user or not user.get('is_admin'):
         return jsonify({"error": "Unauthorized"}), 403
+        
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
         
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -1708,7 +1780,19 @@ def analytics_posts_list():
         
     result.sort(key=lambda x: x['date'], reverse=True)
     
-    return jsonify(result)
+    total_posts = len(result)
+    total_pages = (total_posts + per_page - 1) // per_page
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    paginated_result = result[start:end]
+    
+    return jsonify({
+        "posts": paginated_result,
+        "page": page,
+        "total_pages": total_pages
+    })
 
 @app.route('/api/analytics/posts/<slug>')
 def analytics_post_detail(slug):
@@ -1726,18 +1810,45 @@ def analytics_post_detail(slug):
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
         FROM analytics_pageviews 
-        WHERE slug = ? AND viewed_at > ?
+        WHERE slug = ? AND viewed_at > ? AND event_type = 'view'
         GROUP BY day
         ORDER BY day
     ''', (slug, thirty_days_ago))
     daily_views = [{"date": row[0], "views": row[1]} for row in cursor.fetchall()]
+
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
+        FROM analytics_pageviews 
+        WHERE slug = ? AND viewed_at > ? AND event_type = 'share'
+        GROUP BY day
+        ORDER BY day
+    ''', (slug, thirty_days_ago))
+    daily_shares = [{"date": row[0], "shares": row[1]} for row in cursor.fetchall()]
     
+    cursor.execute('''
+        SELECT platform, COUNT(*) as count
+        FROM analytics_pageviews
+        WHERE slug = ? AND event_type = 'share' AND platform IS NOT NULL AND platform != 'unknown'
+        GROUP BY platform
+        ORDER BY count DESC
+    ''', (slug,))
+    shares_platform = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
+
     conn.close()
+
+    # Get post metadata
+    all_posts = get_all_posts()
+    post_meta = next((p for p in all_posts if p['slug'] == slug), {})
     
     return jsonify({
         "slug": slug,
+        "title": post_meta.get('title', slug),
+        "date": post_meta.get('date', '-'),
+        "image": post_meta.get('image'),
         "total_views": total_views,
-        "daily_views": daily_views
+        "daily_views": daily_views,
+        "daily_shares": daily_shares,
+        "shares_platform": shares_platform
     })
     
 @app.route('/api/analytics/shares_by_platform')
@@ -1748,13 +1859,38 @@ def analytics_shares_by_platform():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT COALESCE(platform, 'unknown') as platform, COUNT(*) as count
+        SELECT platform, COUNT(*) as count
         FROM analytics_pageviews
-        WHERE event_type = 'share'
+        WHERE event_type = 'share' AND platform IS NOT NULL AND platform != 'unknown'
         GROUP BY platform
         ORDER BY count DESC
     ''')
     data = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(data)
+
+@app.route('/api/analytics/daily_shares_platform')
+def analytics_daily_shares_platform():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, platform, COUNT(*) as count
+        FROM analytics_pageviews 
+        WHERE event_type = 'share' AND viewed_at > ? AND platform IS NOT NULL AND platform != 'unknown'
+        GROUP BY day, platform
+        ORDER BY day
+    ''', (thirty_days_ago,))
+    
+    data = []
+    for row in cursor.fetchall():
+        data.append({"date": row[0], "platform": row[1], "count": row[2]})
+        
     conn.close()
     return jsonify(data)
 

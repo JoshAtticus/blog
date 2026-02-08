@@ -105,7 +105,12 @@
         <main class="main-content">
             <!-- Dashboard -->
             <div id="view-dashboard" class="view-section active">
-                <h2>Channel Analytics</h2>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <h2>Blog Analytics</h2>
+                    <div style="display:flex;gap:0.5rem">
+                         <button onclick="togglePlatformShares()" id="btn-toggle-shares" style="padding:0.5rem 1rem;background:#333;color:#fff;border:1px solid #444;border-radius:4px;cursor:pointer;">Show Platform Shares</button>
+                    </div>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-label">Total Unique Views</div>
@@ -145,6 +150,7 @@
                     <thead><tr><th>Post</th><th>Date</th><th>Views</th></tr></thead>
                     <tbody id="content-list"></tbody>
                 </table>
+                <div class="pagination" id="content-pagination"></div>
             </div>
             
             <!-- Post Details (Hidden by default) -->
@@ -169,6 +175,10 @@
                     <div class="chart-container">
                         <canvas id="detailChart"></canvas>
                     </div>
+                    <div class="chart-container" id="detail-shares-container" style="display:none; height:auto; padding-bottom:1rem;">
+                         <h4 style="margin-top:0">Shares by Platform</h4>
+                         <div id="detail-shares-list" style="display:flex; flex-wrap:wrap; gap:1rem;"></div>
+                    </div>
                 </div>
                 
                 <div id="sub-view-community" style="display:none">
@@ -189,11 +199,22 @@
                 <h2>Users</h2>
                 <table>
                     <thead>
-                        <tr><th>ID</th><th>Name</th><th>Email</th><th>Provider</th><th>Verified</th><th>Admin</th><th>Joined</th></tr>
+                        <tr><th>ID</th><th>Name</th><th>Email</th><th>Provider</th><th>Verified</th><th>Admin</th><th>Joined</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="users-list"></tbody>
                 </table>
                 <div class="pagination" id="users-pagination"></div>
+            </div>
+
+            <!-- User Comments Modal/View -->
+            <div id="view-user-comments" class="view-section">
+                 <div class="post-header">
+                    <button onclick="nav('users')" style="background:none;border:none;color:#aaa;cursor:pointer;margin-bottom:1rem;font-size:1rem;">← Back to Users</button>
+                    <h2>Comments by <span id="user-comments-name">User</span></h2>
+                    <button onclick="deleteAllUserComments()" style="background:#ff5252;color:white;border:none;padding:0.5rem 1rem;border-radius:4px;cursor:pointer;margin-bottom:1rem;">Delete All Comments</button>
+                </div>
+                <div class="comment-list" id="user-comments-list"></div>
+                <div class="pagination" id="user-comments-pagination"></div>
             </div>
         </main>
     </div>

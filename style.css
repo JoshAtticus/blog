@@ -1039,7 +1039,7 @@ footer {
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
-  border-radius: 20px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
@@ -1091,7 +1091,7 @@ footer {
   flex-grow: 1;
   background-color: #1e1e1e;
   padding: 1rem;
-  border-radius: 12px;
+  border-radius: 6px;
   border: 1px solid #333;
   min-width: 0;
 }
@@ -1690,4 +1690,12 @@ footer {
     .comp-progress-container {
         width: 120px;
     }
+}
+
+.banned-banner {
+    background-color: #d32f2f;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+    font-weight: 500;
 }

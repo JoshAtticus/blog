@@ -23,6 +23,11 @@
     {% block head_scripts %}{% endblock %}
 </head>
 <body>
+    {% if current_user and current_user.is_banned %}
+    <div class="banned-banner">
+        You've been permanently banned and won't be able to make comments. If you'd like to appeal, send an email to blog@joshattic.us with the subject line "Ban Appeal"
+    </div>
+    {% endif %}
     <div class="reading-progress-container">
         <div class="reading-progress" id="reading-progress"></div>
     </div>
