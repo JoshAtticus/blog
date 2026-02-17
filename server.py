@@ -1336,14 +1336,28 @@ def tags():
 
 @app.route('/tags/<tag_slug>')
 def tag(tag_slug):
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+    per_page = 12
+
     tagged_posts = get_posts_by_tag(tag_slug)
+    total_posts = len(tagged_posts)
+    total_pages = (total_posts + per_page - 1) // per_page
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    posts = tagged_posts[start:end]
     
     tag_name = tag_slug.replace('-', ' ')
     
     return render_template('tag.html', 
                           tag=tag_name, 
-                          posts=tagged_posts, 
-                          year=datetime.now().year)
+                          posts=posts, 
+                          total_posts=total_posts,
+                          year=datetime.now().year,
+                          page=page,
+                          total_pages=total_pages)
 
 @app.route('/search')
 def search():
