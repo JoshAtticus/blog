@@ -1,7 +1,8 @@
 ---
 title: Maybe I have been spoilt by modern flagship phones; I used a 6-year-old midranger for a day
 date: 2026-02-18
-tags: General, Hardware, Samsung, Smartphones, Android, Comparison, Tech, 
+tags: General, Hardware, Samsung, Smartphones, Android, Comparison, Tech
+wasteof_link: https://wasteof.money/posts/6995900a822a845debf10870
 ---
 
 ![Galaxy A71 4G in the camera app, low angle shot](assets/2026-02-18-i-used-a-6-year-old-midranger-for-a-day/galaxy-a71-hero.jpg)
