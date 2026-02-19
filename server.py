@@ -2562,41 +2562,6 @@ def rss_feed():
     
     return app.response_class(fg.rss_str(), mimetype='application/rss+xml')
 
-@app.route('/legal/automated-access-invoice')
-def automated_access_invoice():
-    """
-    Endpoint that generates a 'Liquidated Damages' invoice for unauthorized automated access.
-    Visiting this page acts as confirmation of the bot's presence and violation of TOS.
-    """
-    client_ip = request.remote_addr
-    fingerprint_id = request.cookies.get('wpadm_session', 'Not Captured')
-    
-    # If the user is blocked, we can retrieve their fingerprint hash from the DB as well
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT extra_info FROM blocked_ips WHERE ip_address = ?", (client_ip,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row and row[0]:
-            info = json.loads(row[0])
-            if 'fingerprint_hash' in info:
-                fingerprint_id = info['fingerprint_hash']
-            elif 'client_fingerprint' in info and 'fingerprint_hash' in info['client_fingerprint']:
-                 fingerprint_id = info['client_fingerprint']['fingerprint_hash']
-    except Exception as e:
-        print(f"Error fetching fingerprint for invoice: {e}")
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    
-    return render_template(
-        'bot_invoice.html', 
-        client_ip=client_ip, 
-        fingerprint_id=fingerprint_id,
-        timestamp=timestamp
-    )
-
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('error.html', 
