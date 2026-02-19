@@ -770,3 +770,90 @@ async function loadInvoicing(page = 1) {
         console.error("Error loading invoicing:", e);
     }
 }
+
+// --- NEW LOGIC FOR MANUAL IP LOOKUP AND ACTIONS ---
+
+async function lookupIp() {
+    const ip = document.getElementById('blocked-ip-search').value.trim();
+    if (!ip) return;
+    
+    const resultDiv = document.getElementById('ip-lookup-result');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = 'Searching...';
+    
+    try {
+        const res = await fetch(`/api/admin/blocked_ips/lookup?ip=${encodeURIComponent(ip)}`);
+        const data = await res.json();
+        
+        if (data.is_blocked) {
+            let historyHtml = '';
+            if (data.history && data.history.length > 0) {
+                 historyHtml = `
+                    <div style="margin-top:1rem; font-size:0.9rem; border-top:1px solid #333; padding-top:1rem;">
+                        <strong>History:</strong>
+                        <ul style="padding-left:1.2rem; color:#aaa;">
+                            ${data.history.map(h => `
+                                <li>
+                                    ${new Date(h.created_at).toLocaleDateString()} - 
+                                    ${h.reason} 
+                                    ( until ${new Date(h.blocked_until).toLocaleDateString()} )
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                 `;
+            }
+            
+            resultDiv.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="color:var(--danger); margin:0;">🚫 BLOCKED</h3>
+                        <p style="margin:0.5rem 0;">This IP is currently blocked.</p>
+                        ${data.cache_status ? '<span style="font-size:0.8rem; background:#444; padding:2px 6px; border-radius:4px;">In Cache</span>' : ''}
+                    </div>
+                    <div>
+                        <button onclick="manageIp('${ip}', 'unblock')" style="background:var(--success);">Unblock & Purge</button>
+                    </div>
+                </div>
+                ${historyHtml}
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="color:var(--success); margin:0;">✅ Not Blocked</h3>
+                        <p style="margin:0.5rem 0;">This IP is not currently blocked.</p>
+                    </div>
+                    <div>
+                        <button onclick="manageIp('${ip}', 'block')" style="background:var(--danger);">Block Permanently</button>
+                    </div>
+                </div>
+            `;
+        }
+    } catch(err) {
+        resultDiv.innerHTML = `<span style="color:red">Error searching IP: ${err.message}</span>`;
+    }
+}
+
+async function manageIp(ip, action) {
+    if (!confirm(`Are you sure you want to ${action} ${ip}?`)) return;
+    
+    try {
+        const res = await fetch('/api/admin/blocked_ips/action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ip, action })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert(action === 'block' ? 'IP Blocked Successfully' : 'IP Unblocked & Purged Successfully');
+            lookupIp(); // Refresh status
+            loadBlockedIPs(1); // Refresh list
+        } else {
+            alert('Action failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch(err) {
+        alert('Action failed: ' + err.message);
+    }
+}

@@ -199,9 +199,19 @@
             <!-- Blocked IPs -->
             <div id="view-blocked-ips" class="view-section">
                 <h2>Blocked IPs</h2>
-                <div style="margin-bottom: 1rem; color: #aaa;">
-                    Total Blocked: <span id="blocked-total">0</span>
+                <div style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="color: #aaa;">
+                        Total Blocked: <span id="blocked-total">0</span>
+                    </div>
                 </div>
+                
+                <div class="search-bar" style="margin-bottom: 2rem;">
+                    <input type="text" id="blocked-ip-search" placeholder="Enter IP address to lookup or manage...">
+                    <button onclick="lookupIp()" style="white-space:nowrap;">Check IP</button>
+                    <!-- Small Result Area -->
+                    <div id="ip-lookup-result" style="display:none; margin-top: 1rem; background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);"></div>
+                </div>
+
                 <table>
                     <thead>
                         <tr>

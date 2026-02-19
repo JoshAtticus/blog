@@ -2177,6 +2177,91 @@ def admin_unblock_ip(id):
     conn.close()
     return jsonify({"success": True})
 
+@app.route('/api/admin/blocked_ips/lookup')
+def admin_lookup_ip():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    ip = request.args.get('ip')
+    if not ip:
+        return jsonify({"error": "Missing IP"}), 400
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM blocked_ips WHERE ip_address = ? ORDER BY created_at DESC', (ip,))
+    rows = cursor.fetchall()
+    
+    history = [dict(row) for row in rows]
+    
+    conn.close()
+    
+    is_blocked_cache = cache.get(f'honeypot_blocked_{ip}') or cache.get(f'blocked_{ip}')
+    
+    return jsonify({
+        "ip": ip,
+        "is_blocked": bool(rows) or bool(is_blocked_cache),
+        "history": history,
+        "cache_status": bool(is_blocked_cache)
+    })
+
+@app.route('/api/admin/blocked_ips/action', methods=['POST'])
+def admin_blocked_ip_action():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = request.json
+    ip = data.get('ip')
+    action = data.get('action') # 'block', 'unblock'
+    
+    if not ip or not action:
+        return jsonify({"error": "Missing params"}), 400
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    if action == 'unblock':
+        # 1. Find fingerprints to unblock too
+        cursor.execute('SELECT extra_info FROM blocked_ips WHERE ip_address = ?', (ip,))
+        for row in cursor.fetchall():
+            if row[0]:
+                try:
+                    extra = json.loads(row[0])
+                    if 'client_fingerprint' in extra:
+                         fp_hash = extra['client_fingerprint'].get('fingerprint_hash')
+                         if fp_hash:
+                             cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
+                except: pass
+
+        # 2. Delete IP Records
+        cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
+        
+        # 3. Clear Cache
+        cache.delete(f'honeypot_blocked_{ip}')
+        cache.delete(f'blocked_{ip}')
+        
+    elif action == 'block':
+        reason = data.get('reason', 'Manual Admin Block')
+        duration_days = 365 * 100
+        blocked_until = (datetime.now(timezone.utc) + timedelta(days=duration_days)).isoformat()
+        
+        # Insert
+        cursor.execute('''
+            INSERT INTO blocked_ips (ip_address, reason, blocked_until, country, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ''', (ip, reason, blocked_until, 'Manual', 'Manual Admin Block'))
+        
+        # Set Cache
+        cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * duration_days)
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True})
+
 @app.route('/api/admin/comments')
 def admin_comments():
     user = get_current_user()
