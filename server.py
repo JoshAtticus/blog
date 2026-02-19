@@ -438,11 +438,11 @@ def check_suspicious_block():
     if not is_blocked:
         # Check Cache first (fast)
         if cache.get(f'honeypot_blocked_{ip}'):
-            is_blocked = Tr
-        if cache.get(f'honeypot_blocked_{ip}'):
             is_blocked = True
         else:
             # Check DB
+            try:
+                conn = sqlite3.connect(DB_PATH)
                 c = conn.cursor()
                 c.execute('SELECT id FROM blocked_ips WHERE ip_address = ?', (ip,))
                 row = c.fetchone()
@@ -574,7 +574,10 @@ def honeypot_finalize():
                 # But we are already blocking this IP because it hit the honeypot.
                 # However, user says "If another IP with the same canvas fingerprint then tries to access the site..."
                 pass
-            else:int data
+            else:
+                # Store new fingerprint
+                cursor.execute('INSERT INTO blocked_fingerprints (fingerprint_hash, reason) VALUES (?, ?)', (fingerprint_hash, 'Associated with Honeypot Hit'))
+        
         cursor.execute('''
             UPDATE blocked_ips 
             SET extra_info = ?, reason = ?, tracking_id = ?
