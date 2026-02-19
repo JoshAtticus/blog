@@ -580,8 +580,8 @@ def honeypot_finalize():
         
         if cursor.rowcount == 0:
             # Fallback insert if not found
-            block_duration = 60 * 60 * 24 * 7
-            blocked_until = datetime.now(timezone.utc) + timedelta(seconds=block_duration)
+            # Indefinite block (100 years from now)
+            blocked_until = datetime.now(timezone.utc) + timedelta(days=365*100)
             country = request.headers.get('CF-IPCountry', 'Unknown')
             user_agent = request.user_agent.string
             cursor.execute('''
@@ -594,8 +594,9 @@ def honeypot_finalize():
     except Exception as e:
         print(f"Error logging blocked IP to DB: {e}")
         
-    # Ensure cache block is set
-    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 7)
+    # Ensure cache block is set (limit to max cache int, approx 30 days is fine for now, or just huge)
+    # Flask-Cache doesn't guarantee indefinite but we can set a large number.
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
     
     return jsonify({"status": "blocked"})
 
@@ -1971,26 +1972,137 @@ def admin_blocked_ips():
         "total_records": total_records
     })
 
+@app.route('/api/admin/blocked_ips/<int:id>/analysis')
+def admin_blocked_ip_analysis(id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM blocked_ips WHERE id = ?', (id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+        
+    ip_data = dict(row)
+    extra_info_str = ip_data.get('extra_info')
+    analysis = {
+        "id": ip_data['id'],
+        "ip": ip_data['ip_address'],
+        "country": ip_data['country'],
+        "fingerprint_hash": None,
+        "fingerprint_shared_count": 0,
+        "related_ips": [],
+        "details": {}
+    }
+
+    if extra_info_str:
+        try:
+            extra = json.loads(extra_info_str)
+            client_fp = extra.get('client_fingerprint', {})
+            
+            # Extract basic details if available (client_fp structure depends on JS implementation)
+            # Assuming typical fingerprintjs structure or similar flat structure from JS
+            analysis['details']['screen_res'] = f"{client_fp.get('screen_width', '?')}x{client_fp.get('screen_height', '?')}"
+            analysis['details']['timezone'] = client_fp.get('timezone', 'Unknown')
+            analysis['details']['platform'] = client_fp.get('platform', 'Unknown')
+            analysis['details']['renderer'] = client_fp.get('webgl_renderer', 'Unknown')
+            
+            # Extract Hash
+            fp_hash = client_fp.get('fingerprint_hash')
+            if fp_hash:
+                analysis['fingerprint_hash'] = fp_hash
+                
+                # Check for other IPs with this hash
+                # Since extra_info is JSON string, checking exact match is hard but we can check if string contains hash
+                # A more robust way would be needed for production, but strict hash check inside JSON string is decent proxy
+                
+                # Or query the blocked_fingerprints table? No, that just lists banned hashes.
+                # We need to know WHICH IPs share it.
+                # We have to fetch all blocked IPs with extra_info and parse... which is slow for many records.
+                # ALTERNATIVE: checking `tracking_id` which might be cleaner if cookies persists.
+                
+                # Let's try to find by string matching the hash in extra_info column.
+                # extra_info LIKE '%"fingerprint_hash": "THE_HASH"%'
+                
+                search_pattern = f'%"{fp_hash}"%'
+                cursor.execute('SELECT ip_address, created_at FROM blocked_ips WHERE extra_info LIKE ? AND id != ? ORDER BY created_at DESC LIMIT 50', (search_pattern, id))
+                related_rows = cursor.fetchall()
+                
+                analysis['fingerprint_shared_count'] = len(related_rows)
+                analysis['related_ips'] = [{"ip": r['ip_address'], "date": r['created_at']} for r in related_rows[:10]]
+                
+        except Exception as e:
+            print(f"Error parsing extra info: {e}")
+            pass
+            
+    conn.close()
+    return jsonify(analysis)
+
 @app.route('/api/admin/invoicing')
 def admin_invoicing():
     user = get_current_user()
     if not user or not user.get('is_admin'):
         return jsonify({"error": "Unauthorized"}), 403
 
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Fetch data for invoicing
-    cursor.execute('SELECT id, ip_address, ip_type, data_sent, created_at FROM blocked_ips WHERE data_sent > 0 ORDER BY data_sent DESC')
+    # 1. Get Totals for Summary (Global)
+    # We want total cost across ALL blocked IPs, not just current page
+    cursor.execute('''
+        SELECT 
+            SUM(data_sent) as total_bytes,
+            COUNT(CASE WHEN ip_type = 0 THEN 1 END) as residential_count,
+            COUNT(*) as total_records
+        FROM blocked_ips 
+        WHERE data_sent > 0
+    ''')
+    summary_row = cursor.fetchone()
+    total_bytes = summary_row['total_bytes'] or 0
+    residential_count = summary_row['residential_count'] or 0
+    total_records = summary_row['total_records']
+    
+    # Calculate global costs based on total bytes (approximate, since per-IP calculation is more correct)
+    # But for "Est Cost", summing up (2 * specific_ip_gb) is same as 2 * (sum_gb) IF we assume all residential.
+    # Actually, we only charge for residential.
+    
+    # Let's do it properly: Sum data_sent for residential IPs only for cost calculation
+    cursor.execute('''
+        SELECT SUM(data_sent) FROM blocked_ips WHERE data_sent > 0 AND ip_type = 0
+    ''')
+    res_bytes = cursor.fetchone()[0] or 0
+    res_gb = res_bytes / (1024 * 1024 * 1024)
+    
+    total_cost_low = 2 * res_gb
+    total_cost_high = 15 * res_gb
+    
+    # 2. Get Paginated Rows
+    # Fetch data for invoicing table
+    cursor.execute('''
+        SELECT id, ip_address, ip_type, data_sent, created_at 
+        FROM blocked_ips 
+        WHERE data_sent > 0 
+        ORDER BY data_sent DESC
+        LIMIT ? OFFSET ?
+    ''', (per_page, offset))
     rows = cursor.fetchall()
+    
     conn.close()
     
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    
     invoices = []
-    total_cost_low = 0.0
-    total_cost_high = 0.0
-    total_data_bytes = 0
-    residential_count = 0
     
     for row in rows:
         r = dict(row)
@@ -2001,18 +2113,7 @@ def admin_invoicing():
         cost_l = 2 * data_gb
         cost_h = 15 * data_gb
         
-        is_res = r['ip_type'] == 0 # Assuming 0 is Residential from IPHub
-        if is_res:
-            residential_count += 1
-            total_cost_low += cost_l
-            total_cost_high += cost_h
-        
-        # We only charge for residential?
-        # User said "estimate how much in residential IP proxies... they have paid"
-        # So yes, aggregate only residential cost.
-        # But we show all data sent for context.
-        
-        total_data_bytes += data_b
+        is_res = r['ip_type'] == 0
         
         invoices.append({
             "ip": r['ip_address'],
@@ -2025,10 +2126,12 @@ def admin_invoicing():
         
     return jsonify({
         "invoices": invoices,
+        "page": page,
+        "total_pages": total_pages,
         "summary": {
             "total_cost_low": total_cost_low,
             "total_cost_high": total_cost_high,
-            "total_data_gb": total_data_bytes / (1024 * 1024 * 1024),
+            "total_data_gb": total_bytes / (1024 * 1024 * 1024),
             "residential_ips": residential_count
         }
     })

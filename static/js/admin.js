@@ -8,7 +8,8 @@ let state = {
     detailComments: { page: 1 },
     content: { page: 1 },
     userComments: { page: 1, userId: null },
-    blockedIPs: { page: 1 }
+    blockedIPs: { page: 1 },
+    invoicing: { page: 1 }
 };
 
 // --- Navigation ---
@@ -35,7 +36,7 @@ function nav(viewId) {
     if (viewId === 'community') loadCommunity(state.community.page);
     if (viewId === 'users') loadUsers(state.users.page);
     if (viewId === 'blocked-ips') loadBlockedIPs(state.blockedIPs.page);
-    if (viewId === 'invoicing') loadInvoicing();
+    if (viewId === 'invoicing') loadInvoicing(state.invoicing.page);
 }
 
 function switchSubTab(tab) {
@@ -608,11 +609,8 @@ async function loadBlockedIPs(page) {
         `).join('');
         
         // Custom simple pagination for now, or reuse common if available
-        // But admin.js seems to use renderPagination which might be in common.js or local
-        // Wait, renderPagination is used in other functions, let's assume it's available.
-        // But the previous read didn't show it defined in admin.js, likely in common.js or check admin.js
         if(typeof renderPagination === 'function') {
-             renderPagination('blocked-ips-pagination', page, data.total_pages, loadBlockedIPs);
+             renderPagination('blocked-ips', page, data.total_pages, 'loadBlockedIPs');
         } else {
              // Fallback
              const pDiv = document.getElementById('blocked-ips-pagination');
@@ -625,25 +623,75 @@ async function loadBlockedIPs(page) {
     } catch(e) { console.error(e); }
 }
 
-function showBlockedDetails(id) {
+async function showBlockedDetails(id) {
     const ip = state.blockedIPs.data.find(i => i.id === id);
     if (!ip) return;
     
+    // Fetch deeper analysis
+    let analysis = {};
+    const modalContent = document.getElementById('blocked-details-content');
+    modalContent.innerHTML = `<div style="text-align:center;padding:2rem;">Loading analysis...</div>`;
+    
+    try {
+        const res = await fetch(`/api/admin/blocked_ips/${id}/analysis`);
+        analysis = await res.json();
+    } catch(e) {
+        console.error("Analysis Failed:", e);
+        analysis = { details: {}, related_ips: [] };
+    }
+    
+    // Fallback if basic parsing failed
     let extra = {};
     try { extra = JSON.parse(ip.extra_info); } catch(e) {}
     
-    // Format the JSON nicely
-    const modalContent = document.getElementById('blocked-details-content');
+    const details = analysis.details || {};
+    const related = analysis.related_ips || [];
+    
     modalContent.innerHTML = `
-        <p><strong>IP:</strong> ${ip.ip_address}</p>
-        <p><strong>User Agent:</strong> ${ip.user_agent || 'N/A'}</p>
-        <p><strong>Country:</strong> ${ip.country || 'N/A'}</p>
-        <p><strong>Reason:</strong> ${ip.reason}</p>
-        <p><strong>Blocked Until:</strong> ${new Date(ip.blocked_until).toLocaleString()}</p>
-        <p><strong>Created At:</strong> ${new Date(ip.created_at).toLocaleString()}</p>
-        <hr style="border-color:#333; margin: 1rem 0;">
-        <h3>Fingerprint Data</h3>
-        <pre style="background:#000; padding:1rem; border-radius:4px; overflow-x:auto; color:#4a9eff;">${JSON.stringify(extra, null, 2)}</pre>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h3>Network Info</h3>
+                <p><strong>IP:</strong> ${ip.ip_address}</p>
+                <p><strong>User Agent:</strong> <span style="font-family:monospace;font-size:0.8rem;color:#aaa;">${ip.user_agent || 'N/A'}</span></p>
+                <p><strong>Country:</strong> ${ip.country || 'N/A'}</p>
+                <p><strong>Blocked Util:</strong> ${new Date(ip.blocked_until).toLocaleDateString()}</p>
+                <p><strong>Reason:</strong> ${ip.reason}</p>
+            </div>
+            <div>
+                <h3>Device Fingerprint</h3>
+                ${analysis.fingerprint_hash ? `
+                    <div style="background:#252525; padding:1rem; border-radius:4px; margin-bottom:1rem;">
+                        <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.5rem;">FINGERPRINT HASH</div>
+                        <div style="font-family:monospace;word-break:break-all;color:#4caf50;">${analysis.fingerprint_hash}</div>
+                    </div>
+                    <p><strong>Screen:</strong> ${details.screen_res || 'Unknown'}</p>
+                    <p><strong>Timezone:</strong> ${details.timezone || 'Unknown'}</p>
+                    <p><strong>Shared Count:</strong> <strong style="color:${related.length > 0 ? '#ff5252' : '#4caf50'}">${related.length + 1} IPs</strong> with this fingerprint</p>
+                ` : `<p style="color:#aaa;">No fingerprint data captured.</p>`}
+            </div>
+        </div>
+        
+        ${related.length > 0 ? `
+            <hr style="border-color:#333; margin: 2rem 0;">
+            <h3>Related IPs (Same Fingerprint)</h3>
+            <table style="font-size:0.9rem;">
+                <thead><tr><th>IP Address</th><th>First Seen</th></tr></thead>
+                <tbody>
+                    ${related.map(r => `
+                        <tr>
+                            <td style="font-family:monospace;">${r.ip}</td>
+                            <td>${new Date(r.date || r.created_at).toLocaleString()}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : ''}
+
+        <hr style="border-color:#333; margin: 2rem 0;">
+        <details>
+            <summary style="cursor:pointer;color:#aaa;">Raw Data Payload</summary>
+            <pre style="background:#000; padding:1rem; border-radius:4px; overflow-x:auto; color:#4a9eff; margin-top:1rem;">${JSON.stringify(extra, null, 2)}</pre>
+        </details>
     `;
     
     const modal = document.getElementById('modal-blocked-details');
@@ -662,11 +710,13 @@ async function unblockIP(id) {
 }
 
 // --- Invoicing Logic ---
-async function loadInvoicing() {
+async function loadInvoicing(page = 1) {
     try {
-        const res = await fetch('/api/admin/invoicing');
+        const res = await fetch(`/api/admin/invoicing?page=${page}`);
         if (!res.ok) throw new Error("Failed to fetch invoicing data");
         const data = await res.json();
+        
+        state.invoicing.page = data.page;
         const summary = data.summary;
         
         const cEst = document.getElementById('invoice-est-cost');
@@ -691,6 +741,10 @@ async function loadInvoicing() {
             `).join('');
         }
         
+        if (typeof renderPagination === 'function') {
+            renderPagination('invoicing', data.page, data.total_pages, 'loadInvoicing');
+        }
+
         if (document.getElementById('invoiceChart')) {
              const ctx = document.getElementById('invoiceChart').getContext('2d');
              if(charts['invoiceChart']) charts['invoiceChart'].destroy();
