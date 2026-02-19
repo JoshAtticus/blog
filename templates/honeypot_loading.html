@@ -20,7 +20,36 @@
 
 <script>
 (async function() {
+    // Generate Canvas Fingerprint
+    function getCanvasFingerprint() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const txt = 'BrowserLeaks, <canvas> 1.0';
+        ctx.textBaseline = "top";
+        ctx.font = "14px 'Arial'";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069";
+        ctx.fillText(txt, 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+        ctx.fillText(txt, 4, 17);
+        return canvas.toDataURL();
+    }
+
+    // Simple Hash Function
+    async function sha256(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    const canvasFP = getCanvasFingerprint();
+    const fingerprintHash = await sha256(canvasFP);
+
     const data = {
+        fingerprint_hash: fingerprintHash,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         screen_width: window.screen.width,
         screen_height: window.screen.height,

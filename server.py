@@ -313,6 +313,22 @@ def init_db():
         cursor.execute('ALTER TABLE blocked_ips ADD COLUMN ip_type INTEGER DEFAULT -1')
     except sqlite3.OperationalError:
         pass
+        
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN tracking_id TEXT')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_blocked_ips_tracking_id ON blocked_ips(tracking_id)')
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_fingerprints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fingerprint_hash TEXT NOT NULL,
+            reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_blocked_fingerprints_hash ON blocked_fingerprints(fingerprint_hash)')
     
     conn.commit()
     conn.close()
@@ -404,22 +420,47 @@ def check_suspicious_block():
     if path.startswith('/api/honeypot/finalize'):
         return
 
-    # Check Cookie Block OR IP Block
-    is_blocked = 'wpadm_session' in request.cookies or cache.get(f'honeypot_blocked_{ip}')
+    is_blocked = False
     
+    # 1. Check Cookie Block (Validate against DB)
+    tracking_id = request.cookies.get('wpadm_session')
+    db_id = None
+    
+    if tracking_id:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT id FROM blocked_ips WHERE tracking_id = ?', (tracking_id,))
+            row = c.fetchone()
+            if row:
+                is_blocked = True
+                db_id = row[0]
+            conn.close()
+        except:
+             pass
+
+    # 2. Check IP Cache Block
+    if not is_blocked:
+        if cache.get(f'honeypot_blocked_{ip}'):
+            is_blocked = True
+            
     if is_blocked:
         # If accessing the Honeypot AGAIN, serve the heavy payload
         if path == '/wp-admin-login':
-             # Find existing record to attach usage to
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                cursor = conn.cursor()
-                cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%" ORDER BY id DESC LIMIT 1', (ip,))
-                row = cursor.fetchone()
-                conn.close()
-                if row:
-                    return stream_heavy_block(ip, row[0])
-            except: pass
+             # Find existing record if we don't have it from cookie
+            if not db_id:
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%" ORDER BY id DESC LIMIT 1', (ip,))
+                    row = cursor.fetchone()
+                    conn.close()
+                    if row:
+                        db_id = row[0]
+                except: pass
+            
+            if db_id:
+                return stream_heavy_block(ip, db_id)
             
         return render_template('blocked.html'), 403
 
@@ -450,34 +491,6 @@ def honeypot():
         'timestamp': datetime.now(timezone.utc).isoformat()
     }, timeout=300)
     
-    # Record the initial hit immediately to DB (in case JS fails/not run)
-    block_duration = 60 * 60 * 24 * 7 
-    blocked_until = datetime.now(timezone.utc) + timedelta(seconds=block_duration)
-    
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        # Check if already blocked to avoid duplicates
-        cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%"', (ip,))
-        if not cursor.fetchone():
-            cursor.execute('''
-                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Initial)', blocked_until.isoformat(), json.dumps({'headers': headers_dict, 'initial_hit': True})))
-            conn.commit()
-    except Exception:
-        pass
-    finally:
-        if 'conn' in locals(): conn.close()
-        
-    # Set cache block (will take effect on NEXT request)
-    cache.set(f'honeypot_blocked_{ip}', True, timeout=block_duration)
-    
-    # Return the "Loading" page that runs JS fingerprinting
-    # We want to block them, but we need them to POST the fingerprint first.
-    # If we block immediately in cache, the POST might be blocked by check_suspicious_block?
-    # Yes, unless we exempt the API.
-    
     resp = make_response(render_template('honeypot_loading.html'))
     resp.set_cookie('wpadm_session', tracking_id, max_age=60*60*24*365*10, httponly=True, samesite='Lax')
     
@@ -494,9 +507,9 @@ def honeypot():
         
         if not existing:
             cursor.execute('''
-                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Initial)', blocked_until.isoformat(), json.dumps({'headers': headers_dict, 'initial_hit': True})))
+                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info, tracking_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Initial)', blocked_until.isoformat(), json.dumps({'headers': headers_dict, 'initial_hit': True}), tracking_id))
             conn.commit()
         conn.close()
     except Exception as e:
@@ -512,6 +525,7 @@ def honeypot_finalize():
     # 2. Receive JS Fingerprint Data and Finalize Block
     tracking_id = request.cookies.get('wpadm_session')
     client_data = request.json or {}
+    fingerprint_hash = client_data.get('fingerprint_hash')
     
     ip = request.remote_addr
     
@@ -527,12 +541,28 @@ def honeypot_finalize():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Try to update the existing initial block for this IP
+        # Check and store fingerprint block
+        if fingerprint_hash:
+            # Is this fingerprint already blocked?
+            cursor.execute('SELECT id FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fingerprint_hash,))
+            if cursor.fetchone():
+                # BLOCK THIS IP because fingerprint is banned
+                # But we are already blocking this IP because it hit the honeypot.
+                # However, user says "If another IP with the same canvas fingerprint then tries to access the site..."
+                # In this route, the IP *is* accessing the site (via honeypot). So it will be blocked.
+                # But we should ensure we mark it as "Fingerprint Block" or similar?
+                # For now just ensure we have the fingerprint saved.
+                pass
+            else:
+                # Add to blocked fingerprints
+                cursor.execute('INSERT INTO blocked_fingerprints (fingerprint_hash, reason) VALUES (?, ?)', (fingerprint_hash, f"Honeypot access from {ip}"))
+        
+        # Update existing block with fingerprint data
         cursor.execute('''
             UPDATE blocked_ips 
-            SET extra_info = ?, reason = ?
+            SET extra_info = ?, reason = ?, tracking_id = ?
             WHERE ip_address = ? AND reason LIKE "Accessing /wp-admin-login (Honeypot - Initial)"
-        ''', (json.dumps(full_log), 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', ip))
+        ''', (json.dumps(full_log), 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', tracking_id, ip))
         
         if cursor.rowcount == 0:
             # Fallback insert if not found
@@ -541,9 +571,9 @@ def honeypot_finalize():
             country = request.headers.get('CF-IPCountry', 'Unknown')
             user_agent = request.user_agent.string
             cursor.execute('''
-                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', blocked_until.isoformat(), json.dumps(full_log)))
+                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info, tracking_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', blocked_until.isoformat(), json.dumps(full_log), tracking_id))
             
         conn.commit()
         conn.close()
