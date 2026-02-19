@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Authentication Required{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper" style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div class="auth-card" style="background: #1e1e1e; padding: 2rem; border-radius: 8px; border: 1px solid #333; text-align: center; max-width: 400px; width: 100%;">
+        <div class="spinner" style="margin-bottom: 1rem;">
+            <!-- Simple CSS Spinner -->
+            <div style="border: 4px solid #333; border-top: 4px solid #1a73e8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        </div>
+        <h2 style="color: #fff; margin-bottom: 0.5rem;">Verifying authentication environment...</h2>
+        <p style="color: #888; font-size: 0.9rem;">Please wait while we check your systems compatibility.</p>
+    </div>
+</div>
+
+<style>
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+
+<script>
+(async function() {
+    const data = {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        pixel_ratio: window.devicePixelRatio,
+        color_depth: window.screen.colorDepth,
+        touch_points: navigator.maxTouchPoints,
+        hardware_concurrency: navigator.hardwareConcurrency,
+        language: navigator.language,
+        languages: navigator.languages,
+        platform: navigator.platform,
+        cookies_enabled: navigator.cookieEnabled,
+        java_enabled: navigator.javaEnabled(),
+        user_agent: navigator.userAgent,
+        canvas_fp: getCanvasFingerprint(),
+        webgl_fp: getWebGLFingerprint()
+    };
+
+    function getCanvasFingerprint() {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 200;
+            canvas.height = 50;
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillStyle = "#f60";
+            ctx.fillRect(125,1,62,20);
+            ctx.fillStyle = "#069";
+            ctx.fillText("JoshAtticus Blog FP", 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText("JoshAtticus Blog FP", 4, 17);
+            return canvas.toDataURL();
+        } catch (e) { return null; }
+    }
+
+    function getWebGLFingerprint() {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        if (!gl) return null;
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        return {
+            vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+            renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        };
+      } catch(e) { return null; }
+    }
+
+    // Wait a brief moment to simulate verifying
+    await new Promise(r => setTimeout(r, 800));
+
+    // Send data and get blocked
+    try {
+        await fetch('/api/honeypot/finalize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        // Force reload to trigger the block page
+        window.location.reload();
+    } catch(e) {
+        // Fallback reload
+        window.location.reload();
+    }
+})();
+</script>
+{% endblock %}
