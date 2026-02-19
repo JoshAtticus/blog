@@ -10,7 +10,7 @@ import threading
 import requests
 import fcntl
 from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session, Response
 from cachelib import FileSystemCache
 from PIL import Image
 import io
@@ -19,11 +19,64 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
 import html
+import random
 
 load_dotenv()
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+IPHUB_KEY = os.environ.get('IPHUB_KEY')
+
+def get_ip_type(ip):
+    # Returns: 0 (Residential), 1 (Hosting/Block), -1 (Unknown/Error)
+    if not IPHUB_KEY:
+        return -1
+    try:
+        resp = requests.get(f'http://v2.api.iphub.info/ip/{ip}', headers={'X-Key': IPHUB_KEY}, timeout=3)
+        if resp.status_code == 200:
+            return resp.json().get('block', -1)
+    except:
+        pass
+    return -1
+
+def generate_heavy_payload(ip_id):
+    yield b"<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>Please wait...</h1><div style='display:none;'>"
+    total_bytes = 0
+    chunk_size = 1024 * 1024 # 1MB chunks
+    
+    # Target: 5GB
+    # SVG Paths are resource intensive to render if visible, but display:none minimizes impact on *rendering* but maximizes *download*.
+    # User said "resource intensive to render if... avoid detectance". Headless browsers might parse even hidden elements.
+    # To maximize resource usage: Complex paths, lots of nodes.
+    
+    path_template = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10 10 H 90 V 90 H 10 L 10 10 " + "L {} {} ".format
+    
+    while total_bytes < 5 * 1024 * 1024 * 1024: # 5GB
+        # Generate random garbage SVG data
+        chunk = ""
+        for _ in range(1000): # Batch per chunk
+            points = " ".join([f"L {random.randint(0,100)} {random.randint(0,100)}" for _ in range(50)])
+            chunk += f"<svg><path d='M0 0 {points} Z'/></svg>"
+            
+        encoded_chunk = chunk.encode('utf-8')
+        len_chunk = len(encoded_chunk)
+        total_bytes += len_chunk
+        yield encoded_chunk
+        
+        # Update DB every ~10MB to avoid too many writes
+        if total_bytes % (10 * 1024 * 1024) < len_chunk:
+            try:
+                conn_log = sqlite3.connect(DB_PATH)
+                cursor_log = conn_log.cursor()
+                cursor_log.execute('UPDATE blocked_ips SET data_sent = data_sent + ? WHERE id = ?', (total_bytes, ip_id))
+                conn_log.commit()
+                conn_log.close()
+                total_bytes = 0 # Reset local counter after flush, wait no, data_sent = data_sent + ? means accumulation. Correct.
+            except:
+                pass
+
+    yield b"</div></body></html>"
 
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
@@ -250,6 +303,16 @@ def init_db():
         cursor.execute('ALTER TABLE blocked_ips ADD COLUMN extra_info TEXT')
     except sqlite3.OperationalError:
         pass
+
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN data_sent INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN ip_type INTEGER DEFAULT -1') -- -1: Unknown, 0: Res, 1: Hosting
+    except sqlite3.OperationalError:
+        pass
     
     conn.commit()
     conn.close()
@@ -262,22 +325,104 @@ def robots_txt():
     response.headers["Content-Type"] = "text/plain"
     return response
 
+from flask import Response
+
+def stream_heavy_block(ip, db_id):
+    # Determine IP Type (Residential/Hosting)
+    current_type = -1
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT ip_type FROM blocked_ips WHERE id = ?', (db_id,))
+        row = cursor.fetchone()
+        current_type = row[0] if row else -1
+        
+        # Check IPHub if not already checked
+        if (current_type == -1 or current_type is None) and IPHUB_KEY:
+            try:
+                r = requests.get(f"http://v2.api.iphub.info/ip/{ip}", headers={"X-Key": IPHUB_KEY}, timeout=3)
+                if r.status_code == 200:
+                    ctype = r.json().get('block')
+                    cursor.execute('UPDATE blocked_ips SET ip_type = ? WHERE id = ?', (ctype, db_id))
+                    conn.commit()
+                    current_type = ctype
+            except Exception as e:
+                print(f"IPHub Error: {e}")
+        conn.close()
+    except Exception:
+        pass
+
+    # Generator for Massive Data
+    def generate():
+        total_streamed = 0
+        limit = 5 * 1024 * 1024 * 1024 # 5GB
+        chunk_size = 10 * 1024 * 1024 # 10MB buffered updates
+
+        yield b"<!DOCTYPE html><html><head><title>Admin Panel Loading...</title></head><body><h1>Loading Assets...</h1><div style='display:none;'>"
+        
+        chunk_accum = 0
+        
+        while total_streamed < limit:
+            # Generate random complex SVG paths to burn CPU and Bandwidth
+            # Using random numbers is CPU intensive if done too much in Python, so use pre-calc or simple
+            # Since user wants "random svg data and paths that would be incredibly resource intensive to render"
+            # We add complex path commands.
+            
+            chunk = ""
+            # Generate 100kb chunk approx
+            for _ in range(200):
+                # Random path
+                d = "M 0 0 " + " ".join([f"Q {random.randint(0,500)} {random.randint(0,500)} {random.randint(0,500)} {random.randint(0,500)}" for _ in range(20)])
+                chunk += f"<svg width='500' height='500'><path d='{d}' fill='none' stroke='black'/></svg>"
+            
+            data = chunk.encode('utf-8')
+            len_data = len(data)
+            total_streamed += len_data
+            chunk_accum += len_data
+            yield data
+            
+            # Update DB periodically (every 10MB)
+            if chunk_accum > chunk_size:
+                try:
+                    c_log = sqlite3.connect(DB_PATH)
+                    c_log.execute('UPDATE blocked_ips SET data_sent = COALESCE(data_sent, 0) + ? WHERE id = ?', (chunk_accum, db_id))
+                    c_log.commit()
+                    c_log.close()
+                    chunk_accum = 0
+                except: pass
+        
+        yield b"</div></body></html>"
+
+    return Response(generate(), mimetype='text/html')
+
 @app.before_request
 def check_suspicious_block():
     ip = request.remote_addr
     path = request.path
     
-    # Allow finalizing the honeypot block (otherwise they can't send fingerprint)
+    # Allow finalizing the honeypot block
     if path.startswith('/api/honeypot/finalize'):
         return
 
-    # Check Cookie Block first (unavoidable unless cleared)
-    if 'wpadm_session' in request.cookies:
+    # Check Cookie Block OR IP Block
+    is_blocked = 'wpadm_session' in request.cookies or cache.get(f'honeypot_blocked_{ip}')
+    
+    if is_blocked:
+        # If accessing the Honeypot AGAIN, serve the heavy payload
+        if path == '/wp-admin-login':
+             # Find existing record to attach usage to
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%" ORDER BY id DESC LIMIT 1', (ip,))
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    return stream_heavy_block(ip, row[0])
+            except: pass
+            
         return render_template('blocked.html'), 403
 
-    if cache.get(f'honeypot_blocked_{ip}'):
-        return render_template('blocked.html'), 403
-        
     if cache.get(f'blocked_{ip}'):
         return render_template('suspicious.html'), 403
 
@@ -1780,6 +1925,68 @@ def admin_blocked_ips():
         "page": page,
         "total_pages": total_pages,
         "total_records": total_records
+    })
+
+@app.route('/api/admin/invoicing')
+def admin_invoicing():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Fetch data for invoicing
+    cursor.execute('SELECT id, ip_address, ip_type, data_sent, created_at FROM blocked_ips WHERE data_sent > 0 ORDER BY data_sent DESC')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    invoices = []
+    total_cost_low = 0.0
+    total_cost_high = 0.0
+    total_data_bytes = 0
+    residential_count = 0
+    
+    for row in rows:
+        r = dict(row)
+        data_b = r['data_sent'] or 0
+        data_gb = data_b / (1024 * 1024 * 1024)
+        
+        # User formula: (2*d) and (15*d)
+        cost_l = 2 * data_gb
+        cost_h = 15 * data_gb
+        
+        is_res = r['ip_type'] == 0 # Assuming 0 is Residential from IPHub
+        if is_res:
+            residential_count += 1
+            total_cost_low += cost_l
+            total_cost_high += cost_h
+        
+        # We only charge for residential?
+        # User said "estimate how much in residential IP proxies... they have paid"
+        # So yes, aggregate only residential cost.
+        # But we show all data sent for context.
+        
+        total_data_bytes += data_b
+        
+        invoices.append({
+            "ip": r['ip_address'],
+            "type": "Residential" if r['ip_type'] == 0 else ("Hosting" if r['ip_type'] == 1 else "Unknown"),
+            "data_gb": data_gb,
+            "cost_low": cost_l if is_res else 0,
+            "cost_high": cost_h if is_res else 0,
+            "is_residential": is_res
+        })
+        
+    return jsonify({
+        "invoices": invoices,
+        "summary": {
+            "total_cost_low": total_cost_low,
+            "total_cost_high": total_cost_high,
+            "total_data_gb": total_data_bytes / (1024 * 1024 * 1024),
+            "residential_ips": residential_count
+        }
     })
 
 @app.route('/api/admin/blocked_ips/<int:id>/unblock', methods=['POST'])

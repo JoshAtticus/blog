@@ -35,6 +35,7 @@ function nav(viewId) {
     if (viewId === 'community') loadCommunity(state.community.page);
     if (viewId === 'users') loadUsers(state.users.page);
     if (viewId === 'blocked-ips') loadBlockedIPs(state.blockedIPs.page);
+    if (viewId === 'invoicing') loadInvoicing();
 }
 
 function switchSubTab(tab) {
@@ -658,4 +659,60 @@ async function unblockIP(id) {
     
     await fetch(`/api/admin/blocked_ips/${id}/unblock`, { method: 'POST' });
     loadBlockedIPs(state.blockedIPs.page);
+}
+
+// --- Invoicing Logic ---
+async function loadInvoicing() {
+    try {
+        const res = await fetch('/api/admin/invoicing');
+        if (!res.ok) throw new Error("Failed to fetch invoicing data");
+        const data = await res.json();
+        const summary = data.summary;
+        
+        const cEst = document.getElementById('invoice-est-cost');
+        if(cEst) cEst.innerText = `$${summary.total_cost_low.toFixed(2)} - $${summary.total_cost_high.toFixed(2)}`;
+        
+        const cTotal = document.getElementById('invoice-total-data');
+        if(cTotal) cTotal.innerText = `${summary.total_data_gb.toFixed(4)} GB`;
+        
+        const cRes = document.getElementById('invoice-res-ips');
+        if(cRes) cRes.innerText = summary.residential_ips;
+        
+        const tbody = document.getElementById('invoice-table-body');
+        if (tbody) {
+            tbody.innerHTML = data.invoices.map(inv => `
+                <tr>
+                    <td style="font-family:monospace;">${inv.ip}</td>
+                    <td><span class="status-badge ${inv.is_residential ? 'status-verified' : 'status-unverified'}">${inv.type}</span></td>
+                    <td>${inv.data_gb.toFixed(4)} GB</td>
+                    <td>$${inv.cost_low.toFixed(4)}</td>
+                    <td>$${inv.cost_high.toFixed(4)}</td>
+                </tr>
+            `).join('');
+        }
+        
+        if (document.getElementById('invoiceChart')) {
+             const ctx = document.getElementById('invoiceChart').getContext('2d');
+             if(charts['invoiceChart']) charts['invoiceChart'].destroy();
+
+             charts['invoiceChart'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Estimated Cost'],
+                    datasets: [
+                        { label: 'Low Estimate ($2/GB)', data: [summary.total_cost_low], backgroundColor: '#4caf50' },
+                        { label: 'High Estimate ($15/GB)', data: [summary.total_cost_high], backgroundColor: '#ff9800' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+             });
+        }
+
+    } catch (e) {
+        console.error("Error loading invoicing:", e);
+    }
 }
