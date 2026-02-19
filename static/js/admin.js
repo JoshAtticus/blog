@@ -589,9 +589,11 @@ async function loadBlockedIPs(page) {
         
         document.getElementById('blocked-total').innerText = data.total_records;
         
+    state.blockedIPs.data = data.blocked_ips; // Store for modal access
+        
         const tbody = document.getElementById('blocked-ips-list');
         tbody.innerHTML = data.blocked_ips.map(ip => `
-            <tr>
+            <tr onclick="showBlockedDetails(${ip.id})">
                 <td>${ip.id}</td>
                 <td title="${ip.user_agent || ''}">${ip.ip_address}</td>
                 <td>${ip.country || '-'}</td>
@@ -599,7 +601,7 @@ async function loadBlockedIPs(page) {
                 <td>${new Date(ip.blocked_until).toLocaleString()}</td>
                 <td>${new Date(ip.created_at).toLocaleString()}</td>
                 <td>
-                    <button onclick="unblockIP(${ip.id})" style="background:#ff5252;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Unblock</button>
+                    <button onclick="event.stopPropagation(); unblockIP(${ip.id})" style="background:#ff5252;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Unblock</button>
                 </td>
             </tr>
         `).join('');
@@ -609,7 +611,7 @@ async function loadBlockedIPs(page) {
         // Wait, renderPagination is used in other functions, let's assume it's available.
         // But the previous read didn't show it defined in admin.js, likely in common.js or check admin.js
         if(typeof renderPagination === 'function') {
-             renderPagination('blocked-ips', page, data.total_pages, loadBlockedIPs);
+             renderPagination('blocked-ips-pagination', page, data.total_pages, loadBlockedIPs);
         } else {
              // Fallback
              const pDiv = document.getElementById('blocked-ips-pagination');
@@ -620,6 +622,35 @@ async function loadBlockedIPs(page) {
              `;
         }
     } catch(e) { console.error(e); }
+}
+
+function showBlockedDetails(id) {
+    const ip = state.blockedIPs.data.find(i => i.id === id);
+    if (!ip) return;
+    
+    let extra = {};
+    try { extra = JSON.parse(ip.extra_info); } catch(e) {}
+    
+    // Format the JSON nicely
+    const modalContent = document.getElementById('blocked-details-content');
+    modalContent.innerHTML = `
+        <p><strong>IP:</strong> ${ip.ip_address}</p>
+        <p><strong>User Agent:</strong> ${ip.user_agent || 'N/A'}</p>
+        <p><strong>Country:</strong> ${ip.country || 'N/A'}</p>
+        <p><strong>Reason:</strong> ${ip.reason}</p>
+        <p><strong>Blocked Until:</strong> ${new Date(ip.blocked_until).toLocaleString()}</p>
+        <p><strong>Created At:</strong> ${new Date(ip.created_at).toLocaleString()}</p>
+        <hr style="border-color:#333; margin: 1rem 0;">
+        <h3>Fingerprint Data</h3>
+        <pre style="background:#000; padding:1rem; border-radius:4px; overflow-x:auto; color:#4a9eff;">${JSON.stringify(extra, null, 2)}</pre>
+    `;
+    
+    const modal = document.getElementById('modal-blocked-details');
+    modal.style.display = 'flex';
+}
+
+function closeBlockedDetails() {
+    document.getElementById('modal-blocked-details').style.display = 'none';
 }
 
 async function unblockIP(id) {

@@ -218,6 +218,15 @@
                 <div class="pagination" id="blocked-ips-pagination"></div>
             </div>
 
+            <!-- Blocked IP Details Modal -->
+            <div id="modal-blocked-details" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+                <div style="background:#1e1e1e; padding:2rem; border-radius:8px; border:1px solid #333; max-width:600px; width:90%; max-height:90vh; overflow-y:auto; position:relative;">
+                    <button onclick="closeBlockedDetails()" style="position:absolute; top:1rem; right:1rem; background:none; border:none; color:#aaa; font-size:1.5rem; cursor:pointer;">&times;</button>
+                    <h2 style="margin-top:0;">Blocked IP Details</h2>
+                    <div id="blocked-details-content"></div>
+                </div>
+            </div>
+
             <!-- Users -->
             <div id="view-users" class="view-section">
                 <h2>Users</h2>
