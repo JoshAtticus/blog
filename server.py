@@ -233,18 +233,67 @@ def init_db():
             FOREIGN KEY (comment_id) REFERENCES comments (id)
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_ips (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT NOT NULL,
+            user_agent TEXT,
+            country TEXT,
+            reason TEXT,
+            blocked_until TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     conn.commit()
     conn.close()
 
 init_db()
 
+@app.route('/robots.txt')
+def robots_txt():
+    response = make_response("User-agent: *\nDisallow: /wp-admin-login\n")
+    response.headers["Content-Type"] = "text/plain"
+    return response
+
 @app.before_request
 def check_suspicious_block():
     ip = request.remote_addr
+    
+    if cache.get(f'honeypot_blocked_{ip}'):
+        return render_template('blocked.html'), 403
         
     if cache.get(f'blocked_{ip}'):
         return render_template('suspicious.html'), 403
+
+@app.route('/wp-admin-login')
+def honeypot():
+    ip = request.remote_addr
+    user_agent = request.user_agent.string
+    country = request.headers.get('CF-IPCountry', 'Unknown')
+    
+    # Block for 1 week
+    block_duration = 60 * 60 * 24 * 7
+    blocked_until = datetime.now(timezone.utc) + timedelta(seconds=block_duration)
+    
+    # Add to DB
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot)', blocked_until.isoformat()))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging blocked IP to DB: {e}")
+    
+    # Add to Cache with a specific honeypot key
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=block_duration)
+    
+    return render_template('blocked.html'), 403
 
 @app.after_request
 def monitor_suspicious_activity(response):
@@ -1585,6 +1634,61 @@ def admin_unban_user(user_id):
     cursor = conn.cursor()
     cursor.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
     conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/blocked_ips')
+def admin_blocked_ips():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM blocked_ips')
+    total_records = cursor.fetchone()[0]
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    
+    cursor.execute('SELECT * FROM blocked_ips ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset))
+    blocked_ips = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return jsonify({
+        "blocked_ips": blocked_ips,
+        "page": page,
+        "total_pages": total_pages,
+        "total_records": total_records
+    })
+
+@app.route('/api/admin/blocked_ips/<int:id>/unblock', methods=['POST'])
+def admin_unblock_ip(id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT ip_address FROM blocked_ips WHERE id = ?', (id,))
+    row = cursor.fetchone()
+    if row:
+        ip = row['ip_address']
+        # Remove from DB (or just delete the record?)
+        # Let's delete the record to "unblock"
+        cursor.execute('DELETE FROM blocked_ips WHERE id = ?', (id,))
+        conn.commit()
+        
+        # Remove from cache
+        cache.delete(f'honeypot_blocked_{ip}')
+        cache.delete(f'blocked_{ip}')
+        
     conn.close()
     return jsonify({"success": True})
 

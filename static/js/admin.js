@@ -7,7 +7,8 @@ let state = {
     community: { page: 1 },
     detailComments: { page: 1 },
     content: { page: 1 },
-    userComments: { page: 1, userId: null }
+    userComments: { page: 1, userId: null },
+    blockedIPs: { page: 1 }
 };
 
 // --- Navigation ---
@@ -33,6 +34,7 @@ function nav(viewId) {
     if (viewId === 'content') loadContent(state.content.page);
     if (viewId === 'community') loadCommunity(state.community.page);
     if (viewId === 'users') loadUsers(state.users.page);
+    if (viewId === 'blocked-ips') loadBlockedIPs(state.blockedIPs.page);
 }
 
 function switchSubTab(tab) {
@@ -575,4 +577,54 @@ async function deleteAllUserComments() {
         reloadUserComments(1);
         alert("All comments marked as deleted.");
     } catch(err) { alert("Error deleting comments."); }
+}
+
+// --- Blocked IPs ---
+async function loadBlockedIPs(page) {
+    state.blockedIPs.page = page;
+    try {
+        const res = await fetch(`/api/admin/blocked_ips?page=${page}`);
+        if(!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        
+        document.getElementById('blocked-total').innerText = data.total_records;
+        
+        const tbody = document.getElementById('blocked-ips-list');
+        tbody.innerHTML = data.blocked_ips.map(ip => `
+            <tr>
+                <td>${ip.id}</td>
+                <td title="${ip.user_agent || ''}">${ip.ip_address}</td>
+                <td>${ip.country || '-'}</td>
+                <td>${ip.reason}</td>
+                <td>${new Date(ip.blocked_until).toLocaleString()}</td>
+                <td>${new Date(ip.created_at).toLocaleString()}</td>
+                <td>
+                    <button onclick="unblockIP(${ip.id})" style="background:#ff5252;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Unblock</button>
+                </td>
+            </tr>
+        `).join('');
+        
+        // Custom simple pagination for now, or reuse common if available
+        // But admin.js seems to use renderPagination which might be in common.js or local
+        // Wait, renderPagination is used in other functions, let's assume it's available.
+        // But the previous read didn't show it defined in admin.js, likely in common.js or check admin.js
+        if(typeof renderPagination === 'function') {
+             renderPagination('blocked-ips', page, data.total_pages, loadBlockedIPs);
+        } else {
+             // Fallback
+             const pDiv = document.getElementById('blocked-ips-pagination');
+             pDiv.innerHTML = `
+                <button ${page <= 1 ? 'disabled' : ''} onclick="loadBlockedIPs(${page-1})">Prev</button>
+                <span>Page ${page} of ${data.total_pages}</span>
+                <button ${page >= data.total_pages ? 'disabled' : ''} onclick="loadBlockedIPs(${page+1})">Next</button>
+             `;
+        }
+    } catch(e) { console.error(e); }
+}
+
+async function unblockIP(id) {
+    if(!confirm('Are you sure you want to unblock this IP?')) return;
+    
+    await fetch(`/api/admin/blocked_ips/${id}/unblock`, { method: 'POST' });
+    loadBlockedIPs(state.blockedIPs.page);
 }

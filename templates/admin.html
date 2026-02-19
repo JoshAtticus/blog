@@ -98,6 +98,7 @@
                 <li class="nav-item" onclick="nav('content')">Content</li>
                 <li class="nav-item" onclick="nav('community')">Community</li>
                 <li class="nav-item" onclick="nav('users')">Users</li>
+                <li class="nav-item" onclick="nav('blocked-ips')">Blocked IPs</li>
                 <li class="nav-item" onclick="window.location.href='/'">Back to Blog</li>
             </ul>
         </aside>
@@ -194,6 +195,29 @@
                 <div class="pagination" id="community-pagination"></div>
             </div>
             
+            <!-- Blocked IPs -->
+            <div id="view-blocked-ips" class="view-section">
+                <h2>Blocked IPs</h2>
+                <div style="margin-bottom: 1rem; color: #aaa;">
+                    Total Blocked: <span id="blocked-total">0</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>IP</th>
+                            <th>Country</th>
+                            <th>Reason</th>
+                            <th>Blocked Until</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blocked-ips-list"></tbody>
+                </table>
+                <div class="pagination" id="blocked-ips-pagination"></div>
+            </div>
+
             <!-- Users -->
             <div id="view-users" class="view-section">
                 <h2>Users</h2>
