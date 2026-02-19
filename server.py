@@ -367,42 +367,36 @@ def stream_heavy_block(ip, db_id):
     def generate():
         total_streamed = 0
         limit = 5 * 1024 * 1024 * 1024 # 5GB
-        chunk_size = 10 * 1024 * 1024 # 10MB buffered updates
-
+        chunk_size = 100 * 1024 * 1024 # 100MB for DB updates (reduce write frequency)
+        
+        # Pre-calculate a LARGER chunk to maximize throughput on 4Gbps link
+        # 100KB chunks might be too small for 4Gbps (requires too many context switches)
+        # Let's aim for ~1MB chunks to reduce Python loop overhead
+        complex_path = "M 0 0 " + " ".join([f"Q {i%500} {(i*2)%500} {(i*3)%500} {(i*4)%500}" for i in range(100)])
+        svg_template = f"<svg width='500' height='500'><path d='{complex_path}' fill='none' stroke='black'/></svg>"
+        heavy_chunk = (svg_template * 500).encode('utf-8') # Approx 1MB per yield
+        chunk_len = len(heavy_chunk)
+        
         yield b"<!DOCTYPE html><html><head><title>Admin Panel Loading...</title></head><body><h1>Loading Assets...</h1><div style='display:none;'>"
         
         chunk_accum = 0
         
-        while total_streamed < limit:
-            # Generate random complex SVG paths to burn CPU and Bandwidth
-            # Using random numbers is CPU intensive if done too much in Python, so use pre-calc or simple
-            # Since user wants "random svg data and paths that would be incredibly resource intensive to render"
-            # We add complex path commands.
+        try:
+            while total_streamed < limit:
+                yield heavy_chunk
+                total_streamed += chunk_len
+                chunk_accum += chunk_len
             
-            chunk = ""
-            # Generate 100kb chunk approx
-            for _ in range(200):
-                # Random path
-                d = "M 0 0 " + " ".join([f"Q {random.randint(0,500)} {random.randint(0,500)} {random.randint(0,500)} {random.randint(0,500)}" for _ in range(20)])
-                chunk += f"<svg width='500' height='500'><path d='{d}' fill='none' stroke='black'/></svg>"
+            yield b"</div></body></html>"
             
-            data = chunk.encode('utf-8')
-            len_data = len(data)
-            total_streamed += len_data
-            chunk_accum += len_data
-            yield data
-            
-            # Update DB periodically (every 10MB)
-            if chunk_accum > chunk_size:
+        finally:
+            # Update DB only ONCE at the end of the connection (whether complete or aborted)
+            if chunk_accum > 0:
                 try:
-                    c_log = sqlite3.connect(DB_PATH)
-                    c_log.execute('UPDATE blocked_ips SET data_sent = COALESCE(data_sent, 0) + ? WHERE id = ?', (chunk_accum, db_id))
-                    c_log.commit()
-                    c_log.close()
-                    chunk_accum = 0
-                except: pass
-        
-        yield b"</div></body></html>"
+                    with sqlite3.connect(DB_PATH) as conn:
+                        conn.execute('UPDATE blocked_ips SET data_sent = COALESCE(data_sent, 0) + ? WHERE id = ?', (chunk_accum, db_id))
+                except:
+                    pass
 
     return Response(generate(), mimetype='text/html')
 
