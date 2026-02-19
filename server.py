@@ -476,7 +476,21 @@ def honeypot():
     headers_dict = dict(request.headers)
     
     # Check if already blocked (IP or Cookie)
-    if cache.get(f'honeypot_blocked_{ip}') or request.cookies.get('wpadm_session'):
+    cookie_blocked = False
+    tracking_id = request.cookies.get('wpadm_session')
+    
+    if tracking_id:
+        # Validate if this cookie actually corresponds to an ACTIVE block
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT id FROM blocked_ips WHERE tracking_id = ?', (tracking_id,))
+            if c.fetchone():
+                cookie_blocked = True
+            conn.close()
+        except: pass
+        
+    if cache.get(f'honeypot_blocked_{ip}') or cookie_blocked:
          return render_template('blocked.html'), 403
 
     # Generate a tracking ID
@@ -2029,13 +2043,28 @@ def admin_unblock_ip(id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute('SELECT ip_address FROM blocked_ips WHERE id = ?', (id,))
+    cursor.execute('SELECT ip_address, extra_info FROM blocked_ips WHERE id = ?', (id,))
     row = cursor.fetchone()
     if row:
         ip = row['ip_address']
-        # Remove from DB (or just delete the record?)
-        # Let's delete the record to "unblock"
-        cursor.execute('DELETE FROM blocked_ips WHERE id = ?', (id,))
+        extra_info_str = row['extra_info']
+        
+        # Check for fingerprint and remove from blocked_fingerprints
+        if extra_info_str:
+            try:
+                extra = json.loads(extra_info_str)
+                client_fp = extra.get('client_fingerprint')
+                # Try getting hash from client_fingerprint dict OR directly if structured differently
+                fp_hash = None
+                if isinstance(client_fp, dict):
+                    fp_hash = client_fp.get('fingerprint_hash')
+                
+                if fp_hash:
+                    cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
+            except: pass
+
+        # Remove from DB (delete all records for this IP to ensure full unblock)
+        cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
         conn.commit()
         
         # Remove from cache
