@@ -310,7 +310,7 @@ def init_db():
         pass
 
     try:
-        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN ip_type INTEGER DEFAULT -1') -- -1: Unknown, 0: Res, 1: Hosting
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN ip_type INTEGER DEFAULT -1')
     except sqlite3.OperationalError:
         pass
     
