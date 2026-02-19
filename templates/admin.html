@@ -99,6 +99,7 @@
                 <li class="nav-item" onclick="nav('community')">Community</li>
                 <li class="nav-item" onclick="nav('users')">Users</li>
                 <li class="nav-item" onclick="nav('blocked-ips')">Blocked IPs</li>
+                <li class="nav-item" onclick="nav('invoicing')">Residential Invoicing</li>
                 <li class="nav-item" onclick="window.location.href='/'">Back to Blog</li>
             </ul>
         </aside>
@@ -225,6 +226,44 @@
                     <h2 style="margin-top:0;">Blocked IP Details</h2>
                     <div id="blocked-details-content"></div>
                 </div>
+            </div>
+
+            <!-- Invoicing -->
+            <div id="view-invoicing" class="view-section">
+                <h2>Residential Proxy Invoicing</h2>
+                <div class="stats-grid">
+                     <div class="stat-card">
+                         <div class="stat-label">Estimated Attacker Cost</div>
+                         <div class="stat-value" id="invoice-est-cost">-</div>
+                         <div class="stat-label" style="font-size:0.8rem;color:#888;">Based on typical $2-$15/GB</div>
+                     </div>
+                     <div class="stat-card">
+                         <div class="stat-label">Total Data Served</div>
+                         <div class="stat-value" id="invoice-total-data">-</div>
+                     </div>
+                     <div class="stat-card">
+                         <div class="stat-label">Residential IPs Billed</div>
+                         <div class="stat-value" id="invoice-res-ips">-</div>
+                     </div>
+                 </div>
+                 
+                 <div class="chart-container" style="height:350px;">
+                     <canvas id="invoiceChart"></canvas>
+                 </div>
+ 
+                 <h3>Detailed Usage</h3>
+                 <table>
+                     <thead>
+                         <tr>
+                             <th>IP Address</th>
+                             <th>Type</th>
+                             <th>Data Served (GB)</th>
+                             <th>Cost (Low)</th>
+                             <th>Cost (High)</th>
+                         </tr>
+                     </thead>
+                     <tbody id="invoice-table-body"></tbody>
+                 </table>
             </div>
 
             <!-- Users -->
