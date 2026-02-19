@@ -46,13 +46,10 @@ def generate_heavy_payload(ip_id):
     chunk_size = 1024 * 1024 # 1MB chunks
     
     # Target: 5GB
-    # SVG Paths are resource intensive to render if visible, but display:none minimizes impact on *rendering* but maximizes *download*.
-    # User said "resource intensive to render if... avoid detectance". Headless browsers might parse even hidden elements.
-    # To maximize resource usage: Complex paths, lots of nodes.
     
     path_template = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10 10 H 90 V 90 H 10 L 10 10 " + "L {} {} ".format
     
-    while total_bytes < 5 * 1024 * 1024 * 1024: # 5GB
+    while total_bytes < 5 * 1024 * 1024 * 1024:
         # Generate random garbage SVG data
         chunk = ""
         for _ in range(1000): # Batch per chunk
@@ -72,7 +69,7 @@ def generate_heavy_payload(ip_id):
                 cursor_log.execute('UPDATE blocked_ips SET data_sent = data_sent + ? WHERE id = ?', (total_bytes, ip_id))
                 conn_log.commit()
                 conn_log.close()
-                total_bytes = 0 # Reset local counter after flush, wait no, data_sent = data_sent + ? means accumulation. Correct.
+                total_bytes = 0 
             except:
                 pass
 
@@ -153,8 +150,6 @@ def inject_globals():
     }
 
 def init_db():
-    """Initialize the database with required tables"""
-    # if the db dir doesn't exist, explode /j
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -439,10 +434,25 @@ def check_suspicious_block():
         except:
              pass
 
-    # 2. Check IP Cache Block
+    # 2. Check IP Cache Block OR DB Block
     if not is_blocked:
+        # Check Cache first (fast)
+        if cache.get(f'honeypot_blocked_{ip}'):
+            is_blocked = Tr
         if cache.get(f'honeypot_blocked_{ip}'):
             is_blocked = True
+        else:
+            # Check DB
+                c = conn.cursor()
+                c.execute('SELECT id FROM blocked_ips WHERE ip_address = ?', (ip,))
+                row = c.fetchone()
+                if row:
+                    is_blocked = True
+                    # Refresh cache for speed
+                    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
+                conn.close()
+            except: pass
+
             
     if is_blocked:
         # If accessing the Honeypot AGAIN, serve the heavy payload
@@ -563,15 +573,8 @@ def honeypot_finalize():
                 # BLOCK THIS IP because fingerprint is banned
                 # But we are already blocking this IP because it hit the honeypot.
                 # However, user says "If another IP with the same canvas fingerprint then tries to access the site..."
-                # In this route, the IP *is* accessing the site (via honeypot). So it will be blocked.
-                # But we should ensure we mark it as "Fingerprint Block" or similar?
-                # For now just ensure we have the fingerprint saved.
                 pass
-            else:
-                # Add to blocked fingerprints
-                cursor.execute('INSERT INTO blocked_fingerprints (fingerprint_hash, reason) VALUES (?, ?)', (fingerprint_hash, f"Honeypot access from {ip}"))
-        
-        # Update existing block with fingerprint data
+            else:int data
         cursor.execute('''
             UPDATE blocked_ips 
             SET extra_info = ?, reason = ?, tracking_id = ?
