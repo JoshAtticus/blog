@@ -767,26 +767,55 @@ def clean_for_summary(html_content):
 
 def process_image_comparison(html_content):
     """
-    Replaces [[compare: left_image | right_image | caption]] with HTML for comparison slider.
+    Replaces [[compare: left_source | right_source | caption]] with HTML for comparison slider.
+    Supports images and videos.
     Caption is optional.
     Handles potential <p> wrappers added by Markdown.
     """
     pattern = r'(?:<p>\s*)?\[\[compare:\s*(.*?)\s*\|\s*(.*?)(?:\s*\|\s*(.*?))?\]\](?:\s*</p>)?'
     
+    def get_media_tag(src, class_name):
+        src = src.strip()
+        is_video = src.lower().endswith(('.mp4', '.webm', '.mov', '.ogg'))
+        if is_video:
+            return f'<video class="{class_name}" src="{src}" preload="metadata" muted playsinline></video>'
+        else:
+            return f'<img class="{class_name}" src="{src}" alt="">'
+
     def repl(match):
-        left_img = match.group(1)
-        right_img = match.group(2)
+        left_src = match.group(1)
+        right_src = match.group(2)
         caption = match.group(3) if match.group(3) else ""
+        
+        left_tag = get_media_tag(left_src, "comparison-image-under")
+        right_tag = get_media_tag(right_src, "comparison-image-over")
+        
+        # Check if we need controls
+        has_video = any(src.strip().lower().endswith(('.mp4', '.webm', '.mov', '.ogg')) for src in [left_src, right_src])
+        
+        controls_html = ""
+        if has_video:
+            controls_html = '''
+            <div class="comparison-controls">
+                <button class="comp-play-btn" aria-label="Play">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <div class="comp-progress-container">
+                    <div class="comp-progress-bar"></div>
+                </div>
+            </div>
+            '''
         
         html = f'''
         <div class="comparison-container">
           <div class="comparison-inner">
-            <img class="comparison-image-under" src="{left_img}" alt="">
-            <img class="comparison-image-over" src="{right_img}" alt="">
+            {left_tag}
+            {right_tag}
             <div class="comparison-slider">
               <div class="comparison-handle"></div>
             </div>
           </div>
+          {controls_html}
           <div class="comparison-caption">{caption}</div>
         </div>
         '''
