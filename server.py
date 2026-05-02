@@ -8,7 +8,10 @@ import uuid
 import hashlib
 import threading
 import requests
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session, Response
 from cachelib import FileSystemCache
@@ -1313,7 +1316,8 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         print(f"Error syncing wasteof comments for {post_slug}: {e}")
 
 def run_wasteof_sync():
-    lock_file_path = '/tmp/wasteof_sync.lock'
+    import tempfile
+    lock_file_path = os.path.join(tempfile.gettempdir(), 'wasteof_sync.lock')
     try:
         f = open(lock_file_path, 'w')
     except IOError:
@@ -1322,7 +1326,11 @@ def run_wasteof_sync():
 
     while True:
         try:
-            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if fcntl:
+                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                import msvcrt
+                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
             
             try:
                 print("Starting wasteof.money sync...")
