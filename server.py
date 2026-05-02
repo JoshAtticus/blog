@@ -10,29 +10,77 @@ import threading
 import requests
 import fcntl
 from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session
-from cachelib import SimpleCache
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session, Response
+from cachelib import FileSystemCache
 from PIL import Image
 import io
 from feedgen.feed import FeedGenerator
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
+import html
+import random
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-# Fix for HTTPS behind reverse proxy (Coolify/Docker)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+IPHUB_KEY = os.environ.get('IPHUB_KEY')
+
+def get_ip_type(ip):
+    # Returns: 0 (Residential), 1 (Hosting/Block), -1 (Unknown/Error)
+    if not IPHUB_KEY:
+        return -1
+    try:
+        resp = requests.get(f'http://v2.api.iphub.info/ip/{ip}', headers={'X-Key': IPHUB_KEY}, timeout=3)
+        if resp.status_code == 200:
+            return resp.json().get('block', -1)
+    except:
+        pass
+    return -1
+
+def generate_heavy_payload(ip_id):
+    yield b"<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>Please wait...</h1><div style='display:none;'>"
+    total_bytes = 0
+    chunk_size = 1024 * 1024 # 1MB chunks
+    
+    # Target: 5GB
+    
+    path_template = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10 10 H 90 V 90 H 10 L 10 10 " + "L {} {} ".format
+    
+    while total_bytes < 5 * 1024 * 1024 * 1024:
+        # Generate random garbage SVG data
+        chunk = ""
+        for _ in range(1000): # Batch per chunk
+            points = " ".join([f"L {random.randint(0,100)} {random.randint(0,100)}" for _ in range(50)])
+            chunk += f"<svg><path d='M0 0 {points} Z'/></svg>"
+            
+        encoded_chunk = chunk.encode('utf-8')
+        len_chunk = len(encoded_chunk)
+        total_bytes += len_chunk
+        yield encoded_chunk
+        
+        # Update DB every ~10MB to avoid too many writes
+        if total_bytes % (10 * 1024 * 1024) < len_chunk:
+            try:
+                conn_log = sqlite3.connect(DB_PATH)
+                cursor_log = conn_log.cursor()
+                cursor_log.execute('UPDATE blocked_ips SET data_sent = data_sent + ? WHERE id = ?', (total_bytes, ip_id))
+                conn_log.commit()
+                conn_log.close()
+                total_bytes = 0 
+            except:
+                pass
+
+    yield b"</div></body></html>"
 
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = True # Should be True in production
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# OAuth Configuration
 oauth = OAuth(app)
 
 # Google OAuth
@@ -68,8 +116,8 @@ oauth.register(
     client_kwargs={'scope': 'name email profile_picture'}
 )
 
-cache = SimpleCache()
 CACHE_TIMEOUT = 60 * 60 
+cache = FileSystemCache('flask_cache', threshold=500, default_timeout=CACHE_TIMEOUT)
 POSTS_DIR = "posts"
 DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 
@@ -83,19 +131,32 @@ SUSPICIOUS_ERROR_WINDOW = 60  # 1 minute
 SUSPICIOUS_BLOCK_DURATION = 3600  # 1 hour
 
 @app.context_processor
-def inject_year():
-    return {'year': datetime.now().year}
+def inject_globals():
+    # GDPR (EU + UK) list
+    privacy_countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'UK']
+    
+    # Get country from Cloudflare header
+    country = request.headers.get('CF-IPCountry', '').upper()
+    
+    # Show in EU/UK or US (for California)
+    # If header is missing (e.g. local dev), default to False or maybe True depending on preference.
+    # Here defaulting to False to avoid annoyance during dev, can be forced for testing.
+    is_privacy_region = country in privacy_countries or country == 'US' or os.environ.get('FORCE_PRIVACY_BANNER') == 'true'
+    
+    return {
+        'year': datetime.now().year,
+        'is_privacy_region': is_privacy_region,
+        'current_user': get_current_user()
+    }
 
-# Database initialization
 def init_db():
-    """Initialize the database with required tables"""
-    # Ensure the directory for the database exists
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    cursor.execute('PRAGMA journal_mode=WAL;')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS post_views (
             slug TEXT PRIMARY KEY,
@@ -129,12 +190,10 @@ def init_db():
         )
     ''')
 
-    # Migration: Add event_type column if it doesn't exist
     try:
         cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN event_type TEXT DEFAULT "view"')
     except sqlite3.OperationalError:
-        pass # Column likely exists
-    # Migration: Add platform column if it doesn't exist
+        pass
     try:
         cursor.execute('ALTER TABLE analytics_pageviews ADD COLUMN platform TEXT')
     except sqlite3.OperationalError:
@@ -166,7 +225,6 @@ def init_db():
         ON comments(slug, created_at)
     ''')
     
-    # Users table for authentication
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,13 +240,16 @@ def init_db():
         )
     ''')
     
-    # Migration: Add email_verified column if it doesn't exist
     try:
         cursor.execute('ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0')
     except sqlite3.OperationalError:
         pass
+        
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
 
-    # Migration: Add is_deleted and edited_at to comments
     try:
         cursor.execute('ALTER TABLE comments ADD COLUMN is_deleted BOOLEAN DEFAULT 0')
     except sqlite3.OperationalError:
@@ -198,7 +259,6 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    # Migration: Add wasteof.money integration columns
     try:
         cursor.execute('ALTER TABLE comments ADD COLUMN source TEXT DEFAULT "local"')
     except sqlite3.OperationalError:
@@ -212,7 +272,6 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    # Comment history table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comment_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,36 +281,337 @@ def init_db():
             FOREIGN KEY (comment_id) REFERENCES comments (id)
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_ips (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT NOT NULL,
+            user_agent TEXT,
+            country TEXT,
+            reason TEXT,
+            blocked_until TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN extra_info TEXT')
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN data_sent INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN ip_type INTEGER DEFAULT -1')
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute('ALTER TABLE blocked_ips ADD COLUMN tracking_id TEXT')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_blocked_ips_tracking_id ON blocked_ips(tracking_id)')
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_fingerprints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fingerprint_hash TEXT NOT NULL,
+            reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_blocked_fingerprints_hash ON blocked_fingerprints(fingerprint_hash)')
     
     conn.commit()
     conn.close()
 
-# Initialize the database when the module is loaded
 init_db()
+
+@app.route('/robots.txt')
+def robots_txt():
+    response = make_response("User-agent: *\nDisallow: /wp-admin-login\n")
+    response.headers["Content-Type"] = "text/plain"
+    return response
+
+from flask import Response
+
+def stream_heavy_block(ip, db_id):
+    # Determine IP Type (Residential/Hosting)
+    current_type = -1
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT ip_type FROM blocked_ips WHERE id = ?', (db_id,))
+        row = cursor.fetchone()
+        current_type = row[0] if row else -1
+        
+        # Check IPHub if not already checked
+        if (current_type == -1 or current_type is None) and IPHUB_KEY:
+            try:
+                r = requests.get(f"http://v2.api.iphub.info/ip/{ip}", headers={"X-Key": IPHUB_KEY}, timeout=3)
+                if r.status_code == 200:
+                    ctype = r.json().get('block')
+                    cursor.execute('UPDATE blocked_ips SET ip_type = ? WHERE id = ?', (ctype, db_id))
+                    conn.commit()
+                    current_type = ctype
+            except Exception as e:
+                print(f"IPHub Error: {e}")
+        conn.close()
+    except Exception:
+        pass
+
+    # Generator for Massive Data
+    def generate():
+        total_streamed = 0
+        limit = 5 * 1024 * 1024 * 1024 # 5GB
+        chunk_size = 100 * 1024 * 1024 # 100MB for DB updates (reduce write frequency)
+        
+        # Pre-calculate a LARGER chunk to maximize throughput on 4Gbps link
+        # 100KB chunks might be too small for 4Gbps (requires too many context switches)
+        # Let's aim for ~1MB chunks to reduce Python loop overhead
+        complex_path = "M 0 0 " + " ".join([f"Q {i%500} {(i*2)%500} {(i*3)%500} {(i*4)%500}" for i in range(100)])
+        svg_template = f"<svg width='500' height='500'><path d='{complex_path}' fill='none' stroke='black'/></svg>"
+        heavy_chunk = (svg_template * 500).encode('utf-8') # Approx 1MB per yield
+        chunk_len = len(heavy_chunk)
+        
+        yield b"<!DOCTYPE html><html><head><title>Admin Panel Loading...</title></head><body><h1>Loading Assets...</h1><div style='display:none;'>"
+        
+        chunk_accum = 0
+        
+        try:
+            while total_streamed < limit:
+                yield heavy_chunk
+                total_streamed += chunk_len
+                chunk_accum += chunk_len
+            
+            yield b"</div></body></html>"
+            
+        finally:
+            # Update DB only ONCE at the end of the connection (whether complete or aborted)
+            if chunk_accum > 0:
+                try:
+                    with sqlite3.connect(DB_PATH) as conn:
+                        conn.execute('UPDATE blocked_ips SET data_sent = COALESCE(data_sent, 0) + ? WHERE id = ?', (chunk_accum, db_id))
+                except:
+                    pass
+
+    return Response(generate(), mimetype='text/html')
 
 @app.before_request
 def check_suspicious_block():
-    # Get client IP (ProxyFix middleware handles X-Forwarded-For)
     ip = request.remote_addr
-        
-    # Check if IP is blocked
+    path = request.path
+    
+    # Allow finalizing the honeypot block
+    if path.startswith('/api/honeypot/finalize'):
+        return
+
+    is_blocked = False
+    
+    # 1. Check Cookie Block (Validate against DB)
+    tracking_id = request.cookies.get('wpadm_session')
+    db_id = None
+    
+    if tracking_id:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT id FROM blocked_ips WHERE tracking_id = ?', (tracking_id,))
+            row = c.fetchone()
+            if row:
+                is_blocked = True
+                db_id = row[0]
+            conn.close()
+        except:
+             pass
+
+    # 2. Check IP Cache Block OR DB Block
+    if not is_blocked:
+        # Check Cache first (fast)
+        if cache.get(f'honeypot_blocked_{ip}'):
+            is_blocked = True
+        else:
+            # Check DB
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute('SELECT id FROM blocked_ips WHERE ip_address = ?', (ip,))
+                row = c.fetchone()
+                if row:
+                    is_blocked = True
+                    # Refresh cache for speed
+                    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
+                conn.close()
+            except: pass
+
+            
+    if is_blocked:
+        # If accessing the Honeypot AGAIN, serve the heavy payload
+        if path == '/wp-admin-login':
+             # Find existing record if we don't have it from cookie
+            if not db_id:
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%" ORDER BY id DESC LIMIT 1', (ip,))
+                    row = cursor.fetchone()
+                    conn.close()
+                    if row:
+                        db_id = row[0]
+                except: pass
+            
+            if db_id:
+                return stream_heavy_block(ip, db_id)
+            
+        return render_template('blocked.html'), 403
+
     if cache.get(f'blocked_{ip}'):
         return render_template('suspicious.html'), 403
 
+@app.route('/wp-admin-login')
+def honeypot():
+    # 1. Log Initial Access (Server-side Only)
+    ip = request.remote_addr
+    user_agent = request.user_agent.string
+    country = request.headers.get('CF-IPCountry', 'Unknown')
+    headers_dict = dict(request.headers)
+    
+    # Check if already blocked (IP or Cookie)
+    cookie_blocked = False
+    tracking_id = request.cookies.get('wpadm_session')
+    
+    if tracking_id:
+        # Validate if this cookie actually corresponds to an ACTIVE block
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT id FROM blocked_ips WHERE tracking_id = ?', (tracking_id,))
+            if c.fetchone():
+                cookie_blocked = True
+            conn.close()
+        except: pass
+        
+    if cache.get(f'honeypot_blocked_{ip}') or cookie_blocked:
+         return render_template('blocked.html'), 403
+
+    # Generate a tracking ID
+    tracking_id = str(uuid.uuid4())
+    
+    # Store temporary context in cache to link with JS data later
+    cache.set(f'honeypot_pending_{tracking_id}', {
+        'ip': ip,
+        'ua': user_agent,
+        'country': country,
+        'headers': headers_dict,
+        'timestamp': datetime.now(timezone.utc).isoformat()
+    }, timeout=300)
+    
+    resp = make_response(render_template('honeypot_loading.html'))
+    resp.set_cookie('wpadm_session', tracking_id, max_age=60*60*24*365*10, httponly=True, samesite='Lax')
+    
+    # 3. Log "Initial Hit" to DB immediately (for non-JS bots)
+    block_duration = 60 * 60 * 24 * 7 
+    blocked_until = datetime.now(timezone.utc) + timedelta(seconds=block_duration)
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        # Check if already blocked to avoid duplicates
+        cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%"', (ip,))
+        existing = cursor.fetchone()
+        
+        if not existing:
+            cursor.execute('''
+                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info, tracking_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Initial)', blocked_until.isoformat(), json.dumps({'headers': headers_dict, 'initial_hit': True}), tracking_id))
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging honeypot access: {e}")
+        
+    # 4. Set Cache Block (Effective immediately for next request)
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=block_duration)
+    
+    return resp
+
+@app.route('/api/honeypot/finalize', methods=['POST'])
+def honeypot_finalize():
+    # 2. Receive JS Fingerprint Data and Finalize Block
+    tracking_id = request.cookies.get('wpadm_session')
+    client_data = request.json or {}
+    fingerprint_hash = client_data.get('fingerprint_hash')
+    
+    ip = request.remote_addr
+    
+    # Create Full Fingerprint Record
+    full_log = {
+        'client_fingerprint': client_data,
+        'cookies': dict(request.cookies),
+        'server_timestamp': datetime.now(timezone.utc).isoformat(),
+        'tracking_id': tracking_id
+    }
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Check and store fingerprint block
+        if fingerprint_hash:
+            # Is this fingerprint already blocked?
+            cursor.execute('SELECT id FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fingerprint_hash,))
+            if cursor.fetchone():
+                # BLOCK THIS IP because fingerprint is banned
+                # But we are already blocking this IP because it hit the honeypot.
+                # However, user says "If another IP with the same canvas fingerprint then tries to access the site..."
+                pass
+            else:
+                # Store new fingerprint
+                cursor.execute('INSERT INTO blocked_fingerprints (fingerprint_hash, reason) VALUES (?, ?)', (fingerprint_hash, 'Associated with Honeypot Hit'))
+        
+        cursor.execute('''
+            UPDATE blocked_ips 
+            SET extra_info = ?, reason = ?, tracking_id = ?
+            WHERE ip_address = ? AND reason LIKE "Accessing /wp-admin-login (Honeypot - Initial)"
+        ''', (json.dumps(full_log), 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', tracking_id, ip))
+        
+        if cursor.rowcount == 0:
+            # Fallback insert if not found
+            # Indefinite block (100 years from now)
+            blocked_until = datetime.now(timezone.utc) + timedelta(days=365*100)
+            country = request.headers.get('CF-IPCountry', 'Unknown')
+            user_agent = request.user_agent.string
+            cursor.execute('''
+                INSERT INTO blocked_ips (ip_address, user_agent, country, reason, blocked_until, extra_info, tracking_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (ip, user_agent, country, 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', blocked_until.isoformat(), json.dumps(full_log), tracking_id))
+            
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging blocked IP to DB: {e}")
+        
+    # Ensure cache block is set (limit to max cache int, approx 30 days is fine for now, or just huge)
+    # Flask-Cache doesn't guarantee indefinite but we can set a large number.
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
+    
+    return jsonify({"status": "blocked"})
+
+
 @app.after_request
 def monitor_suspicious_activity(response):
-    # Monitor 4xx and 5xx errors, excluding 401/403 (auth issues)
     if response.status_code >= 400 and response.status_code not in [401, 403]:
-        # Get client IP
         ip = request.remote_addr
         
-        # Increment error count
         error_key = f'errors_{ip}'
         errors = cache.get(error_key) or 0
         errors += 1
         cache.set(error_key, errors, timeout=SUSPICIOUS_ERROR_WINDOW)
         
-        # Check if limit exceeded
+        # kill spammers with hammers (looking at you fucking seo bots)
         if errors >= SUSPICIOUS_ERROR_LIMIT:
             cache.set(f'blocked_{ip}', True, timeout=SUSPICIOUS_BLOCK_DURATION)
             
@@ -319,7 +679,7 @@ def auth_callback(provider):
         oauth_id = str(user_info.get('id'))
         name = user_info.get('name') or user_info.get('login')
         picture = user_info.get('avatar_url')
-        # GitHub email might be private
+        # guthib email might be private, if so explode /j
         email_resp = client.get('user/emails')
         if email_resp.status_code == 200:
             emails = email_resp.json()
@@ -330,7 +690,7 @@ def auth_callback(provider):
                     break
                     
     elif provider == 'joshatticus':
-        # Don't use OpenID claims (id_token), use OAuth2 claims (userinfo endpoint)
+        # i HATE openid so much it's a scam i wasted 30 minutes on ts
         user_info = client.userinfo()
         
         oauth_id = user_info.get('sub')
@@ -349,11 +709,10 @@ def auth_callback(provider):
     if not oauth_id:
         return "Could not retrieve user information", 400
         
-    # Save or update user in database
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Check if user exists
+    # do you exist?
     cursor.execute('SELECT id FROM users WHERE oauth_provider = ? AND oauth_id = ?', (provider, oauth_id))
     existing_user = cursor.fetchone()
     
@@ -365,7 +724,7 @@ def auth_callback(provider):
             WHERE id = ?
         ''', (email, email_verified, name, picture, user_id))
     else:
-        # Check if this is the first user (make admin)
+        # Check if this is the first user (make admin) (yes horribly insecure womp womp cry about it if anyone signs up before me i would just delete the database)
         cursor.execute('SELECT COUNT(*) FROM users')
         count = cursor.fetchone()[0]
         is_admin = 1 if count == 0 else 0
@@ -442,7 +801,6 @@ def hash_ip(ip_address):
 def get_client_ip():
     """Get client IP address, considering X-Forwarded-For header"""
     if 'X-Forwarded-For' in request.headers:
-        # Get the first IP in the chain (original client)
         return request.headers['X-Forwarded-For'].split(',')[0].strip()
     return request.remote_addr or ''
 
@@ -451,7 +809,6 @@ def check_ip_rate_limit(slug, ip_hash):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Get views from this IP in the last 30 days
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute('''
         SELECT COUNT(*) FROM analytics_pageviews 
@@ -524,13 +881,14 @@ def increment_shares_count(slug):
     
     # Log analytics event
     # We might not have request context here if called from background, but usually it is from request
+    # idfk why we wouldn't have it tho
     try:
         user_id = request.cookies.get('blog_user_id') or 'unknown'
         ip_hash = hash_ip(get_client_ip())
         platform = request.args.get('platform') or request.form.get('platform') or request.json.get('platform') if request.is_json else None
         log_analytics_view(slug, user_id, ip_hash, request.user_agent.string, request.referrer, 'share', platform)
     except Exception:
-        pass # Fail silently if outside request context
+        pass
 
 def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type='view', platform=None):
     """Log a page view or event for analytics"""
@@ -544,14 +902,11 @@ def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type=
     conn.close()
 
 
-# --- Share analytics via bot user agent detection ---
 @app.before_request
 def auto_log_share_from_bot():
-    # Only log for GET requests to post pages
     if request.method != 'GET':
         return
     path = request.path
-    # crude check for post URL, adjust if needed
     if path.startswith('/posts/') and not path.endswith('-assets') and '.' not in path.split('/')[-1]:
         user_agent = request.user_agent.string
         platform = get_share_platform_from_user_agent(user_agent)
@@ -559,7 +914,6 @@ def auto_log_share_from_bot():
             slug = path.split('/posts/')[-1]
             user_id = request.cookies.get('blog_user_id') or 'unknown'
             ip_hash = hash_ip(get_client_ip())
-            # Only log if not already logged in this session for this slug/platform
             key = f'sharebot_{slug}_{platform}'
             if not cache.get(key):
                 log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer, 'share', platform)
@@ -654,7 +1008,6 @@ def generate_image_sizes(image_path):
             
             img = Image.open(image_path)
             
-            # Calculate resize ratio
             ratio = min(width / img.width, 1.0)
             new_width = int(img.width * ratio)
             new_height = int(img.height * ratio)
@@ -701,12 +1054,10 @@ def parse_front_matter(content):
         if date_match:
             front_matter['date'] = date_match.group(1).strip()
         
-        # Parse custom summary if provided
         summary_match = re.search(r"summary:\s*(.*)", front_matter_text)
         if summary_match:
             front_matter['summary'] = summary_match.group(1).strip()
         
-        # Parse wasteof.money link
         wasteof_match = re.search(r"wasteof_link:\s*(.*)", front_matter_text)
         if wasteof_match:
             front_matter['wasteof_link'] = wasteof_match.group(1).strip()
@@ -786,6 +1137,22 @@ def process_image_comparison(html_content):
         left_src = match.group(1)
         right_src = match.group(2)
         caption = match.group(3) if match.group(3) else ""
+        left_tag = get_media_tag(left_src, "comparison-image-under")
+        right_tag = get_media_tag(right_src, "comparison-image-over")
+        has_video = any(src.strip().lower().endswith(('.mp4', '.webm', '.mov', '.ogg')) for src in [left_src, right_src])
+        
+        controls_html = ""
+        if has_video:
+            controls_html = '''
+            <div class="comparison-controls">
+                <button class="comp-play-btn" aria-label="Play">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <div class="comp-progress-container">
+                    <div class="comp-progress-bar"></div>
+                </div>
+            </div>
+            '''
         
         left_tag = get_media_tag(left_src, "comparison-image-under")
         right_tag = get_media_tag(right_src, "comparison-image-over")
@@ -846,24 +1213,19 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
     external_id = comment_data['_id']
     user_id = comment_data['poster']['id']
     author_name = comment_data['poster']['name']
-    content = comment_data['content'] # HTML content
+    content = comment_data['content']
     
-    # Strip HTML
+    # xss is bad actually
     content = re.sub(r'<br\s*/?>', '\n', content)
     content = re.sub(r'</p>', '\n\n', content)
     content = re.sub(r'<[^>]+>', '', content)
     content = content.strip()
-    
     created_at = datetime.fromtimestamp(comment_data['time'] / 1000, timezone.utc).isoformat()
-    
-    # Get avatar
     avatar_url = f"https://api.wasteof.money/users/{author_name}/picture"
     
-    # Check if exists
     cursor.execute('SELECT id FROM comments WHERE external_id = ?', (external_id,))
     existing = cursor.fetchone()
     
-    # Resolve parent_id
     parent_db_id = None
     if parent_external_id:
         cursor.execute('SELECT id FROM comments WHERE external_id = ?', (parent_external_id,))
@@ -872,14 +1234,12 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
             parent_db_id = parent_row[0]
     
     if existing:
-        # Update
         cursor.execute('''
             UPDATE comments 
             SET comment_text = ?, author_name = ?, author_avatar_url = ?, parent_id = ?
             WHERE id = ?
         ''', (content, author_name, avatar_url, parent_db_id, existing[0]))
     else:
-        # Insert
         cursor.execute('''
             INSERT INTO comments (slug, user_id, author_name, comment_text, parent_id, created_at, ip_hash, source, external_id, author_avatar_url)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -898,7 +1258,6 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
             data = resp.json()
             for reply in data.get('comments', []):
                 process_wasteof_comment(cursor, post_slug, reply, comment_id)
-                # Recursively fetch replies to replies
                 if reply.get('hasReplies'):
                     fetch_wasteof_replies(cursor, post_slug, reply['_id'])
             
@@ -912,7 +1271,6 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
 def sync_wasteof_comments(post_slug, wasteof_link):
     """Sync comments from wasteof.money"""
     try:
-        # Extract post ID
         match = re.search(r'wasteof\.money/posts/([a-f0-9]+)', wasteof_link)
         if not match:
             print(f"Invalid wasteof link for {post_slug}: {wasteof_link}")
@@ -920,7 +1278,6 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         
         post_id = match.group(1)
         
-        # Fetch comments
         comments = []
         page = 1
         headers = {
@@ -940,14 +1297,12 @@ def sync_wasteof_comments(post_slug, wasteof_link):
                 print(f"Error fetching wasteof comments page {page}: {e}")
                 break
         
-        # Process comments
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         for comment in comments:
             process_wasteof_comment(cursor, post_slug, comment, None)
             
-            # Handle replies
             if comment.get('hasReplies'):
                 fetch_wasteof_replies(cursor, post_slug, comment['_id'])
         
@@ -958,7 +1313,6 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         print(f"Error syncing wasteof comments for {post_slug}: {e}")
 
 def run_wasteof_sync():
-    # Use a lock file to ensure only one worker runs the sync
     lock_file_path = '/tmp/wasteof_sync.lock'
     try:
         f = open(lock_file_path, 'w')
@@ -968,10 +1322,8 @@ def run_wasteof_sync():
 
     while True:
         try:
-            # Try to acquire an exclusive non-blocking lock
             fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             
-            # If we are here, we have the lock
             try:
                 print("Starting wasteof.money sync...")
                 posts = get_all_posts()
@@ -980,12 +1332,10 @@ def run_wasteof_sync():
                     if post.get('wasteof_link'):
                         should_sync = False
                         try:
-                            # Parse post date (YYYY-MM-DD)
                             post_date = datetime.strptime(post['date'], "%Y-%m-%d")
                             if post_date > cutoff_date:
                                 should_sync = True
                         except (ValueError, TypeError):
-                            # If date parsing fails, default to syncing to be safe
                             should_sync = True
                             
                         if should_sync:
@@ -993,14 +1343,10 @@ def run_wasteof_sync():
                 print("Wasteof.money sync completed.")
             except Exception as e:
                 print(f"Error in wasteof sync loop: {e}")
-            
-            # Sleep for 15 minutes while holding the lock
-            # This prevents other workers from taking over
             time.sleep(900) 
             
         except IOError:
-            # Could not acquire lock, another worker is syncing
-            # Sleep a bit and try again later
+
             time.sleep(60)
         except Exception as e:
             print(f"Unexpected error in sync thread: {e}")
@@ -1130,14 +1476,14 @@ def get_comments_for_post(slug, page=None, per_page=20):
     cursor = conn.cursor()
     
     if page:
-        # Count top-level comments
+        # count top-level comments
         cursor.execute('SELECT COUNT(*) FROM comments WHERE slug = ? AND parent_id IS NULL', (slug,))
         total_top_level = cursor.fetchone()[0]
         total_pages = (total_top_level + per_page - 1) // per_page if total_top_level > 0 else 1
         
         offset = (page - 1) * per_page
         
-        # Get top-level comments for this page
+        # get top-level comments for this page
         cursor.execute('''
             SELECT id
             FROM comments
@@ -1153,7 +1499,7 @@ def get_comments_for_post(slug, page=None, per_page=20):
              conn.close()
              return [], 1, 0
              
-        # Get full tree for these top-level comments using Recursive CTE
+        # get full tree for these top-level comments using Recursive CTE
         placeholders = ','.join(['?'] * len(top_level_ids))
         query = f'''
             WITH RECURSIVE comment_tree AS (
@@ -1195,7 +1541,7 @@ def edit_comment(comment_id, user_id, new_text):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Verify ownership
+    # you shall not edit other people's comments
     cursor.execute('SELECT user_id, comment_text FROM comments WHERE id = ?', (comment_id,))
     row = cursor.fetchone()
     if not row:
@@ -1209,11 +1555,9 @@ def edit_comment(comment_id, user_id, new_text):
     old_text = row[1]
     now = datetime.now().isoformat()
     
-    # Save history
     cursor.execute('INSERT INTO comment_history (comment_id, old_text, edited_at) VALUES (?, ?, ?)', 
                   (comment_id, old_text, now))
                   
-    # Update comment
     cursor.execute('UPDATE comments SET comment_text = ?, edited_at = ? WHERE id = ?', 
                   (new_text, now, comment_id))
                   
@@ -1225,7 +1569,7 @@ def delete_comment(comment_id, user_id, is_admin=False):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Verify ownership
+    # you shall not delete other people's comments unless admin
     cursor.execute('SELECT user_id FROM comments WHERE id = ?', (comment_id,))
     row = cursor.fetchone()
     if not row:
@@ -1318,33 +1662,22 @@ def post(slug):
     
     user_agent = request.headers.get('User-Agent', '')
     platform = get_share_platform_from_user_agent(user_agent)
-    # If it's a bot, increment shares count with platform
+    # if it's a bot, increment shares count with platform
     if platform:
-        increment_shares_count(slug)  # Optionally pass platform if you update increment_shares_count
+        increment_shares_count(slug)
     else:
-        # Get or create user ID from cookie
         user_id = request.cookies.get('blog_user_id')
         if not user_id:
             user_id = str(uuid.uuid4())
-        # Get client IP and hash it
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
-        
-        # Check if this user has viewed this post (before logging current view)
         has_viewed = has_user_viewed(slug, user_id)
-        
-        # Check IP rate limit
         within_rate_limit = check_ip_rate_limit(slug, ip_hash)
-        
-        # Log analytics view (every hit)
         log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer)
-        
-        # Only count view if user hasn't viewed AND IP is within rate limit
         if not has_viewed and within_rate_limit:
             increment_view_count(slug)
-            # record_user_view is handled by log_analytics_view now
     
-    # Get counts
+    # views & shares
     view_count = get_view_count(slug)
     shares_count = get_shares_count(slug)
     
@@ -1359,7 +1692,7 @@ def post(slug):
                           view_count=view_count,
                           shares_count=shares_count))
     
-    # Set user ID cookie if it doesn't exist (expires in 1 year)
+    # user id cookie
     if not platform and not request.cookies.get('blog_user_id'):
         expires = datetime.now() + timedelta(days=365)
         response.set_cookie('blog_user_id', user_id, expires=expires, httponly=True, samesite='Lax')
@@ -1377,14 +1710,28 @@ def tags():
 
 @app.route('/tags/<tag_slug>')
 def tag(tag_slug):
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+    per_page = 12
+
     tagged_posts = get_posts_by_tag(tag_slug)
+    total_posts = len(tagged_posts)
+    total_pages = (total_posts + per_page - 1) // per_page
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    posts = tagged_posts[start:end]
     
     tag_name = tag_slug.replace('-', ' ')
     
     return render_template('tag.html', 
                           tag=tag_name, 
-                          posts=tagged_posts, 
-                          year=datetime.now().year)
+                          posts=posts, 
+                          total_posts=total_posts,
+                          year=datetime.now().year,
+                          page=page,
+                          total_pages=total_pages)
 
 @app.route('/search')
 def search():
@@ -1445,7 +1792,7 @@ def comments_api(slug):
         user = get_current_user()
         is_admin = user and user.get('is_admin')
         
-        # Process comments to mask deleted ones
+        # hide deleted comments to normies
         for comment in comments:
             if comment['is_deleted']:
                 if not is_admin:
@@ -1463,45 +1810,47 @@ def comments_api(slug):
         })
     
     elif request.method == 'POST':
-        # Check authentication
+        # are you logged in?
         user = get_current_user()
         if not user:
             return jsonify({"error": "Authentication required"}), 401
             
-        # Check email verification
+        # check if email is verified (we can get this from joshatticusid and google, assume verified for github)
         if not user.get('email_verified'):
             return jsonify({"error": "Verified email required to comment"}), 403
             
+        # check if banned
+        if user.get('is_banned'):
+            return jsonify({"error": "You are banned from commenting."}), 403
+
         data = request.get_json()
         
-        # Use authenticated user info
+        # user info
         user_id = str(user['id'])
         author_name = user['name']
         
-        # Get IP and hash it
+        # ip hashes
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
         
-        # Rate limiting
+        # no spamming
         if not check_comment_rate_limit(user_id, ip_hash):
             return jsonify({"error": "Rate limit exceeded. Please wait before posting again."}), 429
             
-        # Reply rate limiting
         parent_id = data.get('parent_id')
         if parent_id and not check_reply_rate_limit(user_id, ip_hash):
              return jsonify({"error": "Reply rate limit exceeded. Please wait before replying again."}), 429
         
         comment_text = data.get('comment_text', '').strip()
         
-        # Validation
+        # no empty comments or word bombs
         if not comment_text:
             return jsonify({"error": "Comment text is required"}), 400
             
         if len(comment_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        # Security: Escape HTML and strip newlines
-        import html
+        # Security: kill html with hammers
         comment_text = html.escape(comment_text)
         comment_text = comment_text.replace('\n', ' ').replace('\r', '')
         
@@ -1514,6 +1863,9 @@ def comment_action_api(comment_id):
     user = get_current_user()
     if not user:
         return jsonify({"error": "Authentication required"}), 401
+    
+    if user.get('is_banned'):
+        return jsonify({"error": "You are banned."}), 403
         
     user_id = str(user['id'])
     
@@ -1527,7 +1879,6 @@ def comment_action_api(comment_id):
         if len(new_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        import html
         new_text = html.escape(new_text)
         new_text = new_text.replace('\n', ' ').replace('\r', '')
         
@@ -1585,6 +1936,351 @@ def admin_users():
         "total_users": total_users
     })
 
+@app.route('/api/admin/users/<int:user_id>/ban', methods=['POST'])
+def admin_ban_user(user_id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/users/<int:user_id>/unban', methods=['POST'])
+def admin_unban_user(user_id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/blocked_ips')
+def admin_blocked_ips():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM blocked_ips')
+    total_records = cursor.fetchone()[0]
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    
+    cursor.execute('SELECT * FROM blocked_ips ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset))
+    blocked_ips = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return jsonify({
+        "blocked_ips": blocked_ips,
+        "page": page,
+        "total_pages": total_pages,
+        "total_records": total_records
+    })
+
+@app.route('/api/admin/blocked_ips/<int:id>/analysis')
+def admin_blocked_ip_analysis(id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM blocked_ips WHERE id = ?', (id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+        
+    ip_data = dict(row)
+    extra_info_str = ip_data.get('extra_info')
+    analysis = {
+        "id": ip_data['id'],
+        "ip": ip_data['ip_address'],
+        "country": ip_data['country'],
+        "fingerprint_hash": None,
+        "fingerprint_shared_count": 0,
+        "related_ips": [],
+        "details": {}
+    }
+
+    if extra_info_str:
+        try:
+            extra = json.loads(extra_info_str)
+            client_fp = extra.get('client_fingerprint', {})
+            
+            # Extract basic details if available (client_fp structure depends on JS implementation)
+            # Assuming typical fingerprintjs structure or similar flat structure from JS
+            analysis['details']['screen_res'] = f"{client_fp.get('screen_width', '?')}x{client_fp.get('screen_height', '?')}"
+            analysis['details']['timezone'] = client_fp.get('timezone', 'Unknown')
+            analysis['details']['platform'] = client_fp.get('platform', 'Unknown')
+            analysis['details']['renderer'] = client_fp.get('webgl_renderer', 'Unknown')
+            
+            # Extract Hash
+            fp_hash = client_fp.get('fingerprint_hash')
+            if fp_hash:
+                analysis['fingerprint_hash'] = fp_hash
+                
+                # Check for other IPs with this hash
+                # Since extra_info is JSON string, checking exact match is hard but we can check if string contains hash
+                # A more robust way would be needed for production, but strict hash check inside JSON string is decent proxy
+                
+                # Or query the blocked_fingerprints table? No, that just lists banned hashes.
+                # We need to know WHICH IPs share it.
+                # We have to fetch all blocked IPs with extra_info and parse... which is slow for many records.
+                # ALTERNATIVE: checking `tracking_id` which might be cleaner if cookies persists.
+                
+                # Let's try to find by string matching the hash in extra_info column.
+                # extra_info LIKE '%"fingerprint_hash": "THE_HASH"%'
+                
+                search_pattern = f'%"{fp_hash}"%'
+                cursor.execute('SELECT ip_address, created_at FROM blocked_ips WHERE extra_info LIKE ? AND id != ? ORDER BY created_at DESC LIMIT 50', (search_pattern, id))
+                related_rows = cursor.fetchall()
+                
+                analysis['fingerprint_shared_count'] = len(related_rows)
+                analysis['related_ips'] = [{"ip": r['ip_address'], "date": r['created_at']} for r in related_rows[:10]]
+                
+        except Exception as e:
+            print(f"Error parsing extra info: {e}")
+            pass
+            
+    conn.close()
+    return jsonify(analysis)
+
+@app.route('/api/admin/invoicing')
+def admin_invoicing():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 1. Get Totals for Summary (Global)
+    # We want total cost across ALL blocked IPs, not just current page
+    cursor.execute('''
+        SELECT 
+            SUM(data_sent) as total_bytes,
+            COUNT(CASE WHEN ip_type = 0 THEN 1 END) as residential_count,
+            COUNT(*) as total_records
+        FROM blocked_ips 
+        WHERE data_sent > 0
+    ''')
+    summary_row = cursor.fetchone()
+    total_bytes = summary_row['total_bytes'] or 0
+    residential_count = summary_row['residential_count'] or 0
+    total_records = summary_row['total_records']
+    
+    # Calculate global costs based on total bytes (approximate, since per-IP calculation is more correct)
+    # But for "Est Cost", summing up (2 * specific_ip_gb) is same as 2 * (sum_gb) IF we assume all residential.
+    # Actually, we only charge for residential.
+    
+    # Let's do it properly: Sum data_sent for residential IPs only for cost calculation
+    cursor.execute('''
+        SELECT SUM(data_sent) FROM blocked_ips WHERE data_sent > 0 AND ip_type = 0
+    ''')
+    res_bytes = cursor.fetchone()[0] or 0
+    res_gb = res_bytes / (1024 * 1024 * 1024)
+    
+    total_cost_low = 2 * res_gb
+    total_cost_high = 15 * res_gb
+    
+    # 2. Get Paginated Rows
+    # Fetch data for invoicing table
+    cursor.execute('''
+        SELECT id, ip_address, ip_type, data_sent, created_at 
+        FROM blocked_ips 
+        WHERE data_sent > 0 
+        ORDER BY data_sent DESC
+        LIMIT ? OFFSET ?
+    ''', (per_page, offset))
+    rows = cursor.fetchall()
+    
+    conn.close()
+    
+    total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+    
+    invoices = []
+    
+    for row in rows:
+        r = dict(row)
+        data_b = r['data_sent'] or 0
+        data_gb = data_b / (1024 * 1024 * 1024)
+        
+        # User formula: (2*d) and (15*d)
+        cost_l = 2 * data_gb
+        cost_h = 15 * data_gb
+        
+        is_res = r['ip_type'] == 0
+        
+        invoices.append({
+            "ip": r['ip_address'],
+            "type": "Residential" if r['ip_type'] == 0 else ("Hosting" if r['ip_type'] == 1 else "Unknown"),
+            "data_gb": data_gb,
+            "cost_low": cost_l if is_res else 0,
+            "cost_high": cost_h if is_res else 0,
+            "is_residential": is_res
+        })
+        
+    return jsonify({
+        "invoices": invoices,
+        "page": page,
+        "total_pages": total_pages,
+        "summary": {
+            "total_cost_low": total_cost_low,
+            "total_cost_high": total_cost_high,
+            "total_data_gb": total_bytes / (1024 * 1024 * 1024),
+            "residential_ips": residential_count
+        }
+    })
+
+@app.route('/api/admin/blocked_ips/<int:id>/unblock', methods=['POST'])
+def admin_unblock_ip(id):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT ip_address, extra_info FROM blocked_ips WHERE id = ?', (id,))
+    row = cursor.fetchone()
+    if row:
+        ip = row['ip_address']
+        extra_info_str = row['extra_info']
+        
+        # Check for fingerprint and remove from blocked_fingerprints
+        if extra_info_str:
+            try:
+                extra = json.loads(extra_info_str)
+                client_fp = extra.get('client_fingerprint')
+                # Try getting hash from client_fingerprint dict OR directly if structured differently
+                fp_hash = None
+                if isinstance(client_fp, dict):
+                    fp_hash = client_fp.get('fingerprint_hash')
+                
+                if fp_hash:
+                    cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
+            except: pass
+
+        # Remove from DB (delete all records for this IP to ensure full unblock)
+        cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
+        conn.commit()
+        
+        # Remove from cache
+        cache.delete(f'honeypot_blocked_{ip}')
+        cache.delete(f'blocked_{ip}')
+        
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/blocked_ips/lookup')
+def admin_lookup_ip():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    ip = request.args.get('ip')
+    if not ip:
+        return jsonify({"error": "Missing IP"}), 400
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM blocked_ips WHERE ip_address = ? ORDER BY created_at DESC', (ip,))
+    rows = cursor.fetchall()
+    
+    history = [dict(row) for row in rows]
+    
+    conn.close()
+    
+    is_blocked_cache = cache.get(f'honeypot_blocked_{ip}') or cache.get(f'blocked_{ip}')
+    
+    return jsonify({
+        "ip": ip,
+        "is_blocked": bool(rows) or bool(is_blocked_cache),
+        "history": history,
+        "cache_status": bool(is_blocked_cache)
+    })
+
+@app.route('/api/admin/blocked_ips/action', methods=['POST'])
+def admin_blocked_ip_action():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = request.json
+    ip = data.get('ip')
+    action = data.get('action') # 'block', 'unblock'
+    
+    if not ip or not action:
+        return jsonify({"error": "Missing params"}), 400
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    if action == 'unblock':
+        # 1. Find fingerprints to unblock too
+        cursor.execute('SELECT extra_info FROM blocked_ips WHERE ip_address = ?', (ip,))
+        for row in cursor.fetchall():
+            if row[0]:
+                try:
+                    extra = json.loads(row[0])
+                    if 'client_fingerprint' in extra:
+                         fp_hash = extra['client_fingerprint'].get('fingerprint_hash')
+                         if fp_hash:
+                             cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
+                except: pass
+
+        # 2. Delete IP Records
+        cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
+        
+        # 3. Clear Cache
+        cache.delete(f'honeypot_blocked_{ip}')
+        cache.delete(f'blocked_{ip}')
+        
+    elif action == 'block':
+        reason = data.get('reason', 'Manual Admin Block')
+        duration_days = 365 * 100
+        blocked_until = (datetime.now(timezone.utc) + timedelta(days=duration_days)).isoformat()
+        
+        # Insert
+        cursor.execute('''
+            INSERT INTO blocked_ips (ip_address, reason, blocked_until, country, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ''', (ip, reason, blocked_until, 'Manual', 'Manual Admin Block'))
+        
+        # Set Cache
+        cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * duration_days)
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True})
+
 @app.route('/api/admin/comments')
 def admin_comments():
     user = get_current_user()
@@ -1629,7 +2325,6 @@ def admin_comments():
     comments = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
-    # Enrich comments with post info
     all_posts = get_all_posts()
     posts_map = {post['slug']: post for post in all_posts}
     
@@ -1637,7 +2332,6 @@ def admin_comments():
         post = posts_map.get(comment['slug'])
         if post:
             comment['post_title'] = post['title']
-            # Get first image or default
             if post.get('image'):
                 comment['post_image'] = post['image']
             else:
@@ -1662,28 +2356,22 @@ def analytics_overview():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Total views (all time)
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'view'")
     total_views = cursor.fetchone()[0]
     
-    # Total unique views (all time) - approximate by ip_hash
     cursor.execute("SELECT COUNT(DISTINCT ip_hash) FROM analytics_pageviews WHERE event_type = 'view'")
     total_unique_views = cursor.fetchone()[0]
     
-    # Total shares (all time)
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'share'")
     total_shares = cursor.fetchone()[0]
     
-    # Views last 30 days
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute("SELECT COUNT(*) FROM analytics_pageviews WHERE event_type = 'view' AND viewed_at > ?", (thirty_days_ago,))
     views_30d = cursor.fetchone()[0]
     
-    # Unique visitors (last 30 days) - approximate by ip_hash
     cursor.execute("SELECT COUNT(DISTINCT ip_hash) FROM analytics_pageviews WHERE event_type = 'view' AND viewed_at > ?", (thirty_days_ago,))
     visitors_30d = cursor.fetchone()[0]
     
-    # Top posts (last 30 days)
     cursor.execute('''
         SELECT slug, COUNT(*) as count 
         FROM analytics_pageviews 
@@ -1696,7 +2384,6 @@ def analytics_overview():
     
     conn.close()
     
-    # Enrich top posts with titles
     all_posts = get_all_posts()
     posts_map = {post['slug']: post for post in all_posts}
     for p in top_posts:
@@ -1725,6 +2412,7 @@ def analytics_chart():
     cursor = conn.cursor()
     
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+    
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
         FROM analytics_pageviews 
@@ -1734,8 +2422,37 @@ def analytics_chart():
     ''', (thirty_days_ago,))
     daily_views = [{"date": row[0], "views": row[1]} for row in cursor.fetchall()]
     
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
+        FROM analytics_pageviews 
+        WHERE event_type = 'share' AND viewed_at > ?
+        GROUP BY day
+        ORDER BY day
+    ''', (thirty_days_ago,))
+    daily_shares = {row[0]: row[1] for row in cursor.fetchall()}
+    
     conn.close()
-    return jsonify(daily_views)
+    
+    final_data = {}
+    for item in daily_views:
+        final_data[item['date']] = {"date": item['date'], "views": item['views'], "shares": 0, "new_posts": []}
+        
+    for date, count in daily_shares.items():
+        if date not in final_data:
+            final_data[date] = {"date": date, "views": 0, "shares": count, "new_posts": []}
+        else:
+            final_data[date]["shares"] = count
+            
+    all_posts = get_all_posts()
+    for post in all_posts:
+        post_date = post['date']
+        if post_date in final_data:
+            final_data[post_date]['new_posts'].append(post['title'])
+        elif post_date >= thirty_days_ago[:10]:
+             final_data[post_date] = {"date": post_date, "views": 0, "shares": 0, "new_posts": [post['title']]}
+             
+    sorted_data = sorted(final_data.values(), key=lambda x: x['date'])
+    return jsonify(sorted_data)
 
 @app.route('/api/analytics/posts')
 def analytics_posts_list():
@@ -1743,10 +2460,12 @@ def analytics_posts_list():
     if not user or not user.get('is_admin'):
         return jsonify({"error": "Unauthorized"}), 403
         
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+        
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Get view counts per post
     cursor.execute('''
         SELECT slug, COUNT(*) as count 
         FROM analytics_pageviews 
@@ -1766,10 +2485,21 @@ def analytics_posts_list():
             "views": view_counts.get(post['slug'], 0)
         })
         
-    # Sort by date desc
     result.sort(key=lambda x: x['date'], reverse=True)
     
-    return jsonify(result)
+    total_posts = len(result)
+    total_pages = (total_posts + per_page - 1) // per_page
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    paginated_result = result[start:end]
+    
+    return jsonify({
+        "posts": paginated_result,
+        "page": page,
+        "total_pages": total_pages
+    })
 
 @app.route('/api/analytics/posts/<slug>')
 def analytics_post_detail(slug):
@@ -1780,27 +2510,52 @@ def analytics_post_detail(slug):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Total views for this post
     cursor.execute('SELECT COUNT(*) FROM analytics_pageviews WHERE slug = ?', (slug,))
     total_views = cursor.fetchone()[0]
     
-    # Views over time (last 30 days)
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
         FROM analytics_pageviews 
-        WHERE slug = ? AND viewed_at > ?
+        WHERE slug = ? AND viewed_at > ? AND event_type = 'view'
         GROUP BY day
         ORDER BY day
     ''', (slug, thirty_days_ago))
     daily_views = [{"date": row[0], "views": row[1]} for row in cursor.fetchall()]
+
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
+        FROM analytics_pageviews 
+        WHERE slug = ? AND viewed_at > ? AND event_type = 'share'
+        GROUP BY day
+        ORDER BY day
+    ''', (slug, thirty_days_ago))
+    daily_shares = [{"date": row[0], "shares": row[1]} for row in cursor.fetchall()]
     
+    cursor.execute('''
+        SELECT platform, COUNT(*) as count
+        FROM analytics_pageviews
+        WHERE slug = ? AND event_type = 'share' AND platform IS NOT NULL AND platform != 'unknown'
+        GROUP BY platform
+        ORDER BY count DESC
+    ''', (slug,))
+    shares_platform = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
+
     conn.close()
+
+    # Get post metadata
+    all_posts = get_all_posts()
+    post_meta = next((p for p in all_posts if p['slug'] == slug), {})
     
     return jsonify({
         "slug": slug,
+        "title": post_meta.get('title', slug),
+        "date": post_meta.get('date', '-'),
+        "image": post_meta.get('image'),
         "total_views": total_views,
-        "daily_views": daily_views
+        "daily_views": daily_views,
+        "daily_shares": daily_shares,
+        "shares_platform": shares_platform
     })
     
 @app.route('/api/analytics/shares_by_platform')
@@ -1811,13 +2566,38 @@ def analytics_shares_by_platform():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT COALESCE(platform, 'unknown') as platform, COUNT(*) as count
+        SELECT platform, COUNT(*) as count
         FROM analytics_pageviews
-        WHERE event_type = 'share'
+        WHERE event_type = 'share' AND platform IS NOT NULL AND platform != 'unknown'
         GROUP BY platform
         ORDER BY count DESC
     ''')
     data = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(data)
+
+@app.route('/api/analytics/daily_shares_platform')
+def analytics_daily_shares_platform():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+    cursor.execute('''
+        SELECT substr(viewed_at, 1, 10) as day, platform, COUNT(*) as count
+        FROM analytics_pageviews 
+        WHERE event_type = 'share' AND viewed_at > ? AND platform IS NOT NULL AND platform != 'unknown'
+        GROUP BY day, platform
+        ORDER BY day
+    ''', (thirty_days_ago,))
+    
+    data = []
+    for row in cursor.fetchall():
+        data.append({"date": row[0], "platform": row[1], "count": row[2]})
+        
     conn.close()
     return jsonify(data)
 
@@ -1832,13 +2612,10 @@ def admin_reply_to_comment():
     comment_text = data.get('comment_text', '').strip()
     if not (parent_id and slug and comment_text):
         return jsonify({"error": "Missing required fields"}), 400
-    # Use admin's user_id and name
     user_id = str(user['id'])
     author_name = user['name']
     client_ip = get_client_ip()
     ip_hash = hash_ip(client_ip)
-    # No rate limit for admin
-    import html
     comment_text = html.escape(comment_text).replace('\n', ' ').replace('\r', '')
     comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
     return jsonify({"success": True, "comment_id": comment_id})
@@ -1914,7 +2691,12 @@ def privacy():
 def terms():
     return render_template('terms.html')
 
+@app.route('/crazy')
+def crazy():
+    return render_template('crazy.html')
+
 @app.route('/sitemap.xml')
+# istg I made this fucking sitemap for google search console and it keeps saying it couldn't fetch it so I fucking give up
 def sitemap():
     posts = get_all_posts()
     base_url = "https://blog.joshattic.us"
@@ -1922,7 +2704,6 @@ def sitemap():
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     
-    # Static pages
     static_pages = [
         {'loc': '/', 'changefreq': 'daily', 'priority': '1.0'},
         {'loc': '/tags', 'changefreq': 'weekly', 'priority': '0.8'},
@@ -1938,7 +2719,6 @@ def sitemap():
         xml += f'    <priority>{page["priority"]}</priority>\n'
         xml += '  </url>\n'
     
-    # Posts
     for post in posts:
         xml += '  <url>\n'
         xml += f'    <loc>{base_url}/posts/{post["slug"]}</loc>\n'
@@ -2031,7 +2811,7 @@ def method_not_allowed(e):
 
 # Initialize DB and start sync thread when imported (e.g. by Gunicorn)
 # We use a lock in run_wasteof_sync to ensure only one worker runs the sync
-if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # Avoid running twice in Flask debug mode reloader
+if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # don't run twice in Flask debug mode reloader
     try:
         init_db()
         start_wasteof_sync_thread()

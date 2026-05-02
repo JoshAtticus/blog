@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied | JoshAtticus</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #121212;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #1e1e1e;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #333;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h1 { color: #ff6b6b; margin-top: 0; font-size: 1.8rem; }
+        p { color: #b0b0b0; margin-bottom: 1.5rem; line-height: 1.5; }
+        .ip-badge {
+            background: #333;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+        .appeal-section {
+            border-top: 1px solid #333;
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        a { color: #4a9eff; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Access Denied</h1>
+        <p>Your access has been restricted due to suspicious activity detected from your network.</p>
+        
+        <div class="ip-badge">{{ request.remote_addr }}</div>
+        
+        <div class="appeal-section">
+            <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">To appeal this block, email:</p>
+            <a href="mailto:appeals@joshattic.us">appeals@joshattic.us</a>
+            <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">Please include your IP address in the email.</p>
+        </div>
+    </div>
+</body>
+</html>

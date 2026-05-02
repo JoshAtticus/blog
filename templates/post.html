@@ -99,6 +99,11 @@
               <a href="/login" class="signin-btn" style="background-color: #1a73e8; text-decoration: none;">Sign In</a>
             </div>
           </div>
+          {% if current_user and current_user.is_banned %}
+              <p style="color: #ff5252; text-align: center; padding: 1rem; background: rgba(255, 82, 82, 0.1); border-radius: 6px;">
+                  You have been banned from commenting.
+              </p>
+          {% else %}
           <div id="comment-form" style="display: none;">
             <div class="comment-form-header">
               <div class="user-info" id="user-info"></div>
@@ -115,6 +120,7 @@
             </div>
             <div id="comment-status"></div>
           </div>
+          {% endif %}
           <div id="comments-list"></div>
         </div>
       </div>

@@ -129,18 +129,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!banner) return;
 
     if (!localStorage.getItem('privacyConsent')) {
-        try {
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const isEU = timeZone.startsWith('Europe/') || 
-                         ['Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores'].includes(timeZone);
-            const isCalifornia = timeZone === 'America/Los_Angeles';
-            
-            if (isCalifornia || isEU) {
-                console.log("Cookie consent region detected")
-                banner.style.display = 'flex';
-            }
-        } catch (e) {
-            console.log('Timezone detection failed:', e);
+        // Use server-side detection (Cloudflare Header) via injected global variable
+        if (window.isPrivacyRegion) {
+             banner.style.display = 'flex';
         }
     }
     
