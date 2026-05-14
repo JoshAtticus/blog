@@ -14,7 +14,7 @@ except ImportError:
     fcntl = None
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session, Response
-from cachelib import FileSystemCache
+from cachelib import FileSystemCache, NullCache
 from PIL import Image
 import io
 from feedgen.feed import FeedGenerator
@@ -120,7 +120,10 @@ oauth.register(
 )
 
 CACHE_TIMEOUT = 60 * 60 
-cache = FileSystemCache('flask_cache', threshold=500, default_timeout=CACHE_TIMEOUT)
+if os.environ.get('FLASK_ENV') == 'development' or app.debug:
+    cache = NullCache()
+else:
+    cache = FileSystemCache('flask_cache', threshold=500, default_timeout=CACHE_TIMEOUT)
 POSTS_DIR = "posts"
 DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 
