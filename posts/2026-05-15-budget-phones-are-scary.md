@@ -2,6 +2,7 @@
 title: Budget phones are so scarily good now I am writing a blog post about it
 date: 2026-05-15
 tags: General, Hardware, Smartphones, Android, Tech
+wasteof_link: https://wasteof.money/posts/6a0737b32e140a0380123c4e
 ---
 
 ![Cover Hero Image](assets/2026-05-15-budget-phones-are-scary/cover.png)
