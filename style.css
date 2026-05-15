@@ -862,6 +862,11 @@ footer {
   height: auto;
   border-radius: 6px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.2s ease, filter 0.3s ease;
+}
+
+#lightbox img.lightbox-image.lightbox-loading {
+  filter: blur(10px);
 }
 
 #lightbox .lightbox-close {
@@ -908,6 +913,7 @@ footer {
   color: #ddd;
   text-align: center;
   font-size: 0.95rem;
+  transition: opacity 0.2s ease;
 }
 
 /* =========================================

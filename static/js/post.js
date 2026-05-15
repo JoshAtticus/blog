@@ -481,11 +481,44 @@ function initImageEnhancements() {
   function updateLightbox() {
     const img = gallery[index];
     if (!img) return;
-    const fullResSrc = img.dataset.fullResSrc || img.getAttribute('src');
+
+    const thumbSrc = img.getAttribute('src');
+    const fullResSrc = img.dataset.fullResSrc || thumbSrc;
     const originalSrc = fullResSrc.split('?')[0] + '?size=full';
-    lbImg.src = originalSrc;
-    lbImg.alt = img.getAttribute('alt') || '';
-    lbCaption.textContent = img.getAttribute('alt') || '';
+    const altText = img.getAttribute('alt') || '';
+
+    // If it's already showing the right image, do nothing
+    if (lbImg.src.includes(originalSrc) || lbImg.src.includes(thumbSrc)) return;
+
+    // Fade out first
+    lbImg.style.opacity = '0';
+    lbCaption.style.opacity = '0';
+
+    setTimeout(() => {
+      if (gallery[index] !== img) return;
+
+      // Set thumbnail immediately after fade out
+      lbImg.src = thumbSrc;
+      lbImg.classList.add('lightbox-loading');
+      lbImg.alt = altText;
+      lbCaption.textContent = altText;
+
+      // Fade back in with the thumbnail
+      lbImg.style.opacity = '1';
+      lbCaption.style.opacity = '1';
+
+      // Load high res image
+      const highResImg = new Image();
+      highResImg.onload = () => {
+        if (gallery[index] === img) {
+          lbImg.src = originalSrc;
+          lbImg.classList.remove('lightbox-loading');
+        }
+      };
+      highResImg.src = originalSrc;
+      
+    }, 150);
+
     btnPrev.disabled = index <= 0;
     btnNext.disabled = index >= gallery.length - 1;
   }
@@ -504,25 +537,10 @@ function initImageEnhancements() {
     }
   }
 
-  content.querySelectorAll('.image-grid').forEach(grid => {
-    const imgs = Array.from(grid.querySelectorAll('img'));
-    imgs.forEach((img, i) => {
-      img.style.cursor = 'zoom-in';
-      img.addEventListener('click', () => openLightbox(imgs, i));
-    });
-  });
-  const standaloneImgs = Array.from(content.querySelectorAll('figure > img')).filter(img => !img.closest('.image-grid') && !img.closest('.image-row'));
-  standaloneImgs.forEach(img => {
+  const lightboxImgs = Array.from(content.querySelectorAll('figure > img'));
+  lightboxImgs.forEach((img, i) => {
     img.style.cursor = 'zoom-in';
-    img.addEventListener('click', () => openLightbox([img], 0));
-  });
-
-  content.querySelectorAll('.image-row').forEach(row => {
-    const imgs = Array.from(row.querySelectorAll('img'));
-    imgs.forEach((img, i) => {
-      img.style.cursor = 'zoom-in';
-      img.addEventListener('click', () => openLightbox(imgs, i));
-    });
+    img.addEventListener('click', () => openLightbox(lightboxImgs, i));
   });
 
   btnClose.addEventListener('click', closeLightbox);
