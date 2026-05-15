@@ -2,6 +2,7 @@
 title: What is the point of smartwatches?
 date: 2026-05-14
 tags: General, Hardware, Smartwatch, Tech, Google, Fitbit, Fitness, Opinion
+wasteof_link: https://wasteof.money/posts/6a05afc22e140a0380123b85
 ---
 
 ![Cover](assets/2026-05-14-fitbit-inspire-3/cover.jpg)
