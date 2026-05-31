@@ -13,6 +13,7 @@ try:
 except ImportError:
     fcntl = None
 from datetime import datetime, timezone, timedelta
+from urllib.parse import parse_qs, urlparse
 from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, make_response, session, Response
 from cachelib import FileSystemCache, NullCache
 from PIL import Image
@@ -1215,6 +1216,48 @@ def process_twitter_embed(html_content):
 
     return re.sub(pattern, repl, html_content)
 
+def process_youtube_embed(html_content):
+    """
+        Replaces [[youtube: video_id]] with a YouTube nocookie embed.
+    """
+    pattern = r'(?:<p>\s*)?\[\[youtube:\s*(.*?)\]\](?:\s*</p>)?'
+
+    def repl(match):
+                value = match.group(1).strip()
+
+                video_id = value
+                if 'youtube.com' in value or 'youtu.be' in value:
+                        parsed = urlparse(value)
+                        if 'youtu.be' in parsed.netloc:
+                                video_id = parsed.path.lstrip('/')
+                        else:
+                                query_params = parse_qs(parsed.query)
+                                video_id = query_params.get('v', [''])[0]
+                                if not video_id and '/embed/' in parsed.path:
+                                        video_id = parsed.path.split('/embed/')[-1].split('/')[0]
+
+                video_id = re.sub(r'[^A-Za-z0-9_-]', '', video_id)
+                if not video_id:
+                        return match.group(0)
+
+                embed_url = f'https://www.youtube-nocookie.com/embed/{video_id}'
+
+                html = f'''
+                <div class="youtube-embed">
+                    <iframe
+                        src="{embed_url}"
+                        title="YouTube video player"
+                        loading="lazy"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen>
+                    </iframe>
+                </div>
+                '''
+                return html
+
+    return re.sub(pattern, repl, html_content)
+
 def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id):
     external_id = comment_data['_id']
     user_id = comment_data['poster']['id']
@@ -1387,6 +1430,7 @@ def get_all_posts():
             html_content = enforce_link_target_blank(html_content)
             html_content = process_image_comparison(html_content)
             html_content = process_twitter_embed(html_content)
+            html_content = process_youtube_embed(html_content)
             
             first_image, content_without_first_image = extract_and_remove_first_image(html_content)
             
