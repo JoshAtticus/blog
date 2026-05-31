@@ -2,6 +2,7 @@
 title: Your ZTE phone is likely spying on you, which ZTE says is "compliant"
 date: 2026-05-31
 tags: General, Hardware, Smartphones, Android, Tech, Security, China, ZTE, Unisoc, Spreadtrum, Spyware, Technical
+wasteof_link: https://wasteof.money/posts/6a1c3f342e140a0380124751
 ---
 
 ![ZTE Phone on the splash screen](assets/2026-05-31-your-zte-phone-is-spying-on-you/hero.jpg)
