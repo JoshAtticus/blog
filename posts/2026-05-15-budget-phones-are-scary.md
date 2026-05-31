@@ -7,6 +7,8 @@ wasteof_link: https://wasteof.money/posts/6a0737b32e140a0380123c4e
 
 ![Cover Hero Image](assets/2026-05-15-budget-phones-are-scary/cover.png)
 
+**Update as of May 31, 2026**: ZTE devices like the one shown in this article may contain spyware. I do not recommend purchasing them. See [this](https://blog.joshattic.us/posts/2026-05-31-your-zte-phone-is-spying-on-you)
+
 10 years ago if I told you that you can go to your nearest Woolies, which may not be that close if you live outside Australia, and purchase a very usable, low-end midrange phone for just $29, you would laugh in my face. That is because 10 years ago, the best you'd be getting is one of these:
 
 ![Telstra Tempo, image credit Economic on OzBargain](assets/2026-05-15-budget-phones-are-scary/telstra-tempo.png)
