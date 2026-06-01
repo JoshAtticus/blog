@@ -69,3 +69,13 @@ There are almost certainly more than this, these are only devices I was able to 
 Now, back to ZTE's response. Remember how they said that this behaviour was compliant? Well to nobody's surprise, it isn't, especially under CCPA or GDPR. Even if the user explicitly disables Usage & Diagnostics data collection, the device continues to record this invasive logging data to this partition, which can't be cleared easily. Disregarding the invasiveness, simply continuing to log even after the user disables it is enough to violate privacy laws in many countries and regions.
 
 ![Usage and Diagnostics data is explicitly disabled in settings, yet log data continues to be collected](assets/2026-05-31-your-zte-phone-is-spying-on-you/usage-and-diagnostics.jpg)
+
+As for invasiveness?
+
+- It survives a factory reset, making it a privacy issue if you sell or give away your device
+- A log of every app you use and when as well as when you charge your phone could be used to create a map of your entire daily routine ("We kill people based on metadata." - Michael Hayden, former Director of the NSA and CIA)
+- The data should not be collected in the first place if the user has disabled usage and diagnostics data. The users also are not informed that any of this is happening
+- The data is stored in an insecure way
+- ZTE admits their own support team accesses all this data if you send your phone in for repair
+
+If you'd like to try this on your own phone, you can see my Proof-of-Concept code on GitHub: [https://github.com/JoshAtticus/ztewaste](https://github.com/JoshAtticus/ztewaste)
