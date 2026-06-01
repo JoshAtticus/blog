@@ -30,7 +30,7 @@ A quick factory reset later to confirm my suspicions, and yep, this log, of ALL 
 - Total time charging the phone at 45 and 50+ degrees celsius powered on and powered off
 - Battery charge cycles (date & time device started charging, fast or normal charging, time charging in m but sometimes just a random number, battery percentage when charging started and ended, minimum battery voltage, maximum battery voltage, minimum battery current, maximum battery current, minimum temperature and maximum temperature in celsius)
 
-[Here's a copy of the data I extracted from my device](https://pastebin.com/TbPznWK4)
+[Here's a copy of the data I extracted from my device](https://pastebin.com/TbPznWK4) (It seems app usage data is only stored for ~14 days, because the earliest data and the factory QA testing app isn't present. Unfortunately I don't have any screenshots or copies of older files from when I was still prying around)
 
 The worst part? Combined with CVE-2022-38694, all of this can be obtained by an attacker with physical access to the device in under 45 seconds. The data is stored without encryption, meaning the screen lock is not required to access the data. Furthermore, as ZTE devices do not require the screen lock to be entered to power off the device, this data can be extracted from any device state by just powering off the phone without authorisation.
 
