@@ -264,20 +264,25 @@ footer {
 .share-buttons {
   display: flex;
   justify-content: flex-start;
+  flex-wrap: wrap;
   margin-top: 2.5rem;
   margin-bottom: 1.5rem;
   gap: 0.8rem;
+  width: 100%;
+  max-width: 100%;
 }
 
 .share-buttons a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 1 1 180px;
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-weight: 500;
   transition: all 0.2s ease;
   color: #fff;
+  box-sizing: border-box;
 }
 
 .share-buttons a:hover {
@@ -1357,15 +1362,15 @@ footer {
   /* Single Post */
   .post-container {
     padding: 1.5rem;
-    margin: 0 -0.25rem;
+    margin: 0;
   }
 
   .post-header {
     height: auto;
     min-height: 250px;
-    margin-left: -0.25rem;
-    margin-right: -0.25rem;
-    width: calc(100% + 0.5rem);
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .title-overlay {
@@ -1385,8 +1390,12 @@ footer {
   }
 
   .share-buttons a {
+    flex: 1 1 auto;
     width: 100%;
+    max-width: 100%;
     justify-content: center;
+    white-space: normal;
+    word-break: break-word;
   }
 
   /* Comments */
