@@ -13,6 +13,10 @@
 
     {% block meta %}{% endblock %}
 
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200..900&display=swap" rel="stylesheet">
+
     <script defer data-domain="blog.joshattic.us" src="https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2122521845436476" crossorigin="anonymous"></script>
     
@@ -33,7 +37,7 @@
     </div>
 
     <header>
-        <h1><a href="/">JoshAtticus Blog</a></h1>
+        <h1><a href="/"><span class="joshatticus-wordmark">JoshAtticus </span><span>Blog</span></a></h1>
         <nav class="nav">
             <a href="/tags">
                 <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -60,7 +64,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer>© 2023 - {{ year }} JoshAtticus | <a href="/feed.rss">RSS Feed</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/contact">Contact</a>
+    <footer>© 2023 - {{ year }} <span class="joshatticus-wordmark">JoshAtticus</span> | <a href="/feed.rss">RSS Feed</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/contact">Contact</a>
     <a href="/wp-admin-login" style="display:none;" rel="nofollow">Wordpress Cpanel Admin Panel Login Management</a>
     </footer>
 

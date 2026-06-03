@@ -1947,8 +1947,6 @@ body.comment-menu-open {
         width: 120px;
     }
 }
-<<<<<<< HEAD
-=======
 
 .banned-banner {
     background-color: #d32f2f;
@@ -1957,4 +1955,7 @@ body.comment-menu-open {
     padding: 1rem;
     font-weight: 500;
 }
->>>>>>> b3746593242419930019f572f3bea1cc2b82d009
+
+.joshatticus-wordmark {
+    font-family: 'Unbounded';
+}
