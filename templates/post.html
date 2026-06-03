@@ -94,7 +94,7 @@
         <div class="comments">
           <h2>Comments</h2>
           <div id="signin-banner" class="signin-banner" style="display: none;">
-            <p>Sign in to leave a comment</p>
+            <p>Sign in to comment and reply</p>
             <div class="auth-buttons" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
               <a href="/login" class="signin-btn" style="background-color: #1a73e8; text-decoration: none;">Sign In</a>
             </div>
@@ -116,7 +116,11 @@
             <textarea id="comment-text" placeholder="Leave a comment..." maxlength="1500" rows="4" required></textarea>
             <div class="comment-form-footer">
               <span class="char-count" id="char-count">0 / 1500</span>
-              <button id="submit-comment" class="submit-comment-btn">Post Comment</button>
+              <button id="submit-comment" class="submit-comment-btn" type="button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3.4 20.4l17.45-7.48c.73-.31.73-1.35 0-1.66L3.4 3.78c-.67-.29-1.36.38-1.12 1.08l1.87 5.43a1 1 0 0 0 .95.68h8.16a.75.75 0 0 1 0 1.5H5.1a1 1 0 0 0-.95.68l-1.87 5.43c-.24.7.45 1.37 1.12 1.08z"/>
+                </svg>
+              </button>
             </div>
             <div id="comment-status"></div>
           </div>

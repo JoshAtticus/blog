@@ -1,5 +1,120 @@
 const postSlug = window.location.pathname.split('/').pop();
 let replyParentId = null;
+let activeMenuComment = null;
+let commentMenuBackdrop = null;
+
+const submitButtonIcons = {
+  send: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.4 20.4l17.45-7.48c.73-.31.73-1.35 0-1.66L3.4 3.78c-.67-.29-1.36.38-1.12 1.08l1.87 5.43a1 1 0 0 0 .95.68h8.16a.75.75 0 0 1 0 1.5H5.1a1 1 0 0 0-.95.68l-1.87 5.43c-.24.7.45 1.37 1.12 1.08z"/></svg>',
+  loading: '<span class="loading-dots" aria-hidden="true"><span></span><span></span><span></span></span>',
+  success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.55 18.2L3.75 12.4l2.12-2.12 3.68 3.68 8.58-8.58 2.12 2.12z"/></svg>',
+  error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 7h2v8h-2zm0 10h2v2h-2z"/></svg>'
+};
+let submitFeedbackTimeout = null;
+
+function isMobileMenuViewport() {
+  return window.matchMedia('(max-width: 600px)').matches;
+}
+
+function ensureCommentMenuBackdrop() {
+  if (commentMenuBackdrop) return;
+  commentMenuBackdrop = document.createElement('div');
+  commentMenuBackdrop.className = 'comment-menu-backdrop';
+  commentMenuBackdrop.addEventListener('click', () => closeAllCommentMenus());
+  document.body.appendChild(commentMenuBackdrop);
+}
+
+function activateCommentMenuContext(commentEl) {
+  if (!isMobileMenuViewport()) return;
+  ensureCommentMenuBackdrop();
+  if (activeMenuComment) activeMenuComment.classList.remove('menu-active');
+  activeMenuComment = commentEl;
+  activeMenuComment.classList.add('menu-active');
+  document.body.classList.add('comment-menu-open');
+  commentMenuBackdrop.classList.add('open');
+}
+
+function clearCommentMenuContext() {
+  if (activeMenuComment) {
+    activeMenuComment.classList.remove('menu-active');
+    activeMenuComment = null;
+  }
+  document.body.classList.remove('comment-menu-open');
+  if (commentMenuBackdrop) {
+    commentMenuBackdrop.classList.remove('open');
+  }
+}
+
+function setSubmitButtonState(isReply) {
+  const submitBtn = document.getElementById('submit-comment');
+  if (!submitBtn) return;
+  const label = isReply ? 'Post reply' : 'Post comment';
+  submitBtn.setAttribute('aria-label', label);
+  submitBtn.setAttribute('title', label);
+}
+
+function setSubmitButtonVisualState(state) {
+  const submitBtn = document.getElementById('submit-comment');
+  if (!submitBtn) return;
+
+  submitBtn.classList.remove('is-loading', 'is-success', 'is-error');
+
+  if (state === 'loading') {
+    submitBtn.classList.add('is-loading');
+    submitBtn.innerHTML = submitButtonIcons.loading;
+    submitBtn.setAttribute('aria-label', 'Posting comment');
+    submitBtn.setAttribute('title', 'Posting comment');
+    return;
+  }
+
+  if (state === 'success') {
+    submitBtn.classList.add('is-success');
+    submitBtn.innerHTML = submitButtonIcons.success;
+    submitBtn.setAttribute('aria-label', 'Comment posted');
+    submitBtn.setAttribute('title', 'Comment posted');
+    return;
+  }
+
+  if (state === 'error') {
+    submitBtn.classList.add('is-error');
+    submitBtn.innerHTML = submitButtonIcons.error;
+    submitBtn.setAttribute('aria-label', 'Comment failed');
+    submitBtn.setAttribute('title', 'Comment failed');
+    return;
+  }
+
+  submitBtn.innerHTML = submitButtonIcons.send;
+  setSubmitButtonState(replyParentId !== null);
+}
+
+function showTransientSubmitFeedback(state, durationMs = 1000) {
+  if (submitFeedbackTimeout) {
+    clearTimeout(submitFeedbackTimeout);
+    submitFeedbackTimeout = null;
+  }
+
+  setSubmitButtonVisualState(state);
+
+  return new Promise(resolve => {
+    submitFeedbackTimeout = setTimeout(() => {
+      setSubmitButtonVisualState('idle');
+      submitFeedbackTimeout = null;
+      resolve();
+    }, durationMs);
+  });
+}
+
+function closeAllCommentMenus(exceptMenu = null) {
+  document.querySelectorAll('.comment-menu.open').forEach(menu => {
+    if (menu !== exceptMenu) {
+      menu.classList.remove('open');
+      const trigger = menu.previousElementSibling;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+  if (!exceptMenu) {
+    clearCommentMenuContext();
+  }
+}
 
 async function loadComments() {
   try {
@@ -52,7 +167,7 @@ function replyTo(commentId, authorName) {
   document.getElementById('reply-to-name').textContent = authorName;
   document.getElementById('comment-text').focus();
   document.getElementById('comment-text').placeholder = `Replying to ${authorName}...`;
-  document.getElementById('submit-comment').textContent = 'Post Reply';
+  setSubmitButtonState(true);
   document.getElementById('comment-form').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -62,7 +177,7 @@ if (cancelReplyBtn) {
       replyParentId = null;
       document.getElementById('reply-indicator').style.display = 'none';
       document.getElementById('comment-text').placeholder = 'Leave a comment...';
-      document.getElementById('submit-comment').textContent = 'Post Comment';
+      setSubmitButtonState(false);
     });
 }
 
@@ -92,6 +207,10 @@ function startEdit(comment, bodyEl) {
   saveBtn.className = 'submit-comment-btn';
   saveBtn.style.padding = '0.3rem 0.8rem';
   saveBtn.style.fontSize = '0.85rem';
+  saveBtn.style.width = 'auto';
+  saveBtn.style.height = 'auto';
+  saveBtn.style.minWidth = '0';
+  saveBtn.style.borderRadius = '6px';
 
   saveBtn.onclick = async () => {
     const newText = textarea.value.trim();
@@ -251,30 +370,75 @@ function renderComment(comment, byParent, depth = 0) {
   const actions = document.createElement('div');
   actions.className = 'comment-actions';
 
-  const replyBtn = document.createElement('button');
-  replyBtn.className = 'reply-btn';
-  replyBtn.textContent = 'Reply';
-  replyBtn.onclick = () => replyTo(comment.id, comment.author_name);
+  if (currentUser) {
+    const menuTrigger = document.createElement('button');
+    menuTrigger.className = 'comment-menu-trigger';
+    menuTrigger.type = 'button';
+    menuTrigger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>';
+    menuTrigger.setAttribute('aria-label', 'Comment actions');
+    menuTrigger.setAttribute('aria-haspopup', 'true');
+    menuTrigger.setAttribute('aria-expanded', 'false');
 
-  actions.appendChild(replyBtn);
+    const menu = document.createElement('div');
+    menu.className = 'comment-menu';
 
-  if (currentUser && (String(currentUser.id) === String(comment.user_id) || currentUser.is_admin) && !comment.is_deleted) {
-    const editBtn = document.createElement('button');
-    editBtn.className = 'reply-btn';
-    editBtn.textContent = 'Edit';
-    editBtn.onclick = () => startEdit(comment, body);
-    actions.appendChild(editBtn);
+    const replyItem = document.createElement('button');
+    replyItem.className = 'comment-menu-item';
+    replyItem.type = 'button';
+    replyItem.textContent = 'Reply';
+    replyItem.onclick = () => {
+      replyTo(comment.id, comment.author_name);
+      closeAllCommentMenus();
+    };
+    menu.appendChild(replyItem);
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'reply-btn delete-action-btn';
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.onclick = () => deleteComment(comment.id);
-    actions.appendChild(deleteBtn);
+    if ((String(currentUser.id) === String(comment.user_id) || currentUser.is_admin) && !comment.is_deleted) {
+      const editItem = document.createElement('button');
+      editItem.className = 'comment-menu-item';
+      editItem.type = 'button';
+      editItem.textContent = 'Edit';
+      editItem.onclick = () => {
+        startEdit(comment, body);
+        closeAllCommentMenus();
+      };
+      menu.appendChild(editItem);
+
+      const deleteItem = document.createElement('button');
+      deleteItem.className = 'comment-menu-item delete';
+      deleteItem.type = 'button';
+      deleteItem.textContent = 'Delete';
+      deleteItem.onclick = () => {
+        deleteComment(comment.id);
+        closeAllCommentMenus();
+      };
+      menu.appendChild(deleteItem);
+    }
+
+    menuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = menu.classList.contains('open');
+      closeAllCommentMenus();
+      if (!isOpen) {
+        menu.classList.add('open');
+        menuTrigger.setAttribute('aria-expanded', 'true');
+        activateCommentMenuContext(commentDiv);
+      } else {
+        menuTrigger.setAttribute('aria-expanded', 'false');
+        clearCommentMenuContext();
+      }
+    });
+
+    menu.addEventListener('click', (e) => e.stopPropagation());
+
+    actions.appendChild(menuTrigger);
+    actions.appendChild(menu);
   }
 
   contentDiv.appendChild(header);
   contentDiv.appendChild(body);
-  contentDiv.appendChild(actions);
+  if (currentUser) {
+    contentDiv.appendChild(actions);
+  }
 
   commentDiv.appendChild(avatar);
   commentDiv.appendChild(contentDiv);
@@ -310,25 +474,24 @@ const submitCommentBtn = document.getElementById('submit-comment');
 if (submitCommentBtn) {
     submitCommentBtn.addEventListener('click', async () => {
       const commentText = document.getElementById('comment-text').value.trim();
-      const statusEl = document.getElementById('comment-status');
       const submitBtn = document.getElementById('submit-comment');
       const charCount = document.getElementById('char-count');
 
+      if (submitBtn.classList.contains('is-loading')) {
+        return;
+      }
+
       if (!commentText) {
-        statusEl.textContent = 'Please enter a comment.';
-        statusEl.className = 'error';
+        await showTransientSubmitFeedback('error', 1000);
         return;
       }
 
       if (commentText.length > 1500) {
-        statusEl.textContent = 'Comment must be 1500 characters or less.';
-        statusEl.className = 'error';
+        await showTransientSubmitFeedback('error', 1000);
         return;
       }
 
-      submitBtn.disabled = true;
-      statusEl.textContent = 'Posting...';
-      statusEl.className = '';
+      setSubmitButtonVisualState('loading');
 
       try {
         const response = await fetch(`/api/comments/${postSlug}`, {
@@ -343,29 +506,37 @@ if (submitCommentBtn) {
         const data = await response.json();
 
         if (response.ok) {
-          statusEl.textContent = 'Comment posted successfully!';
-          statusEl.className = 'success';
           document.getElementById('comment-text').value = '';
           charCount.textContent = '0 / 1500';
 
+          const newComment = data.comment;
           replyParentId = null;
           document.getElementById('reply-indicator').style.display = 'none';
           document.getElementById('comment-text').placeholder = 'Leave a comment...';
-          document.getElementById('submit-comment').textContent = 'Post Comment';
+          setSubmitButtonState(false);
 
-          setTimeout(() => {
-            statusEl.textContent = '';
+          await showTransientSubmitFeedback('success', 1000);
+
+          if (newComment) {
+            const container = document.getElementById('comments-list');
+            if (container) {
+              if (newComment.parent_id) {
+                loadComments();
+              } else {
+                const commentEl = renderComment(newComment, {});
+                container.insertBefore(commentEl, container.firstChild);
+              }
+            }
+          } else {
             loadComments();
-          }, 2000);
+          }
         } else {
-          statusEl.textContent = data.error || 'Failed to post comment.';
-          statusEl.className = 'error';
+          console.warn(data.error || 'Failed to post comment.');
+          await showTransientSubmitFeedback('error', 1000);
         }
       } catch (error) {
-        statusEl.textContent = 'Error posting comment. Please try again.';
-        statusEl.className = 'error';
-      } finally {
-        submitBtn.disabled = false;
+        console.error('Error posting comment:', error);
+        await showTransientSubmitFeedback('error', 1000);
       }
     });
 }
@@ -693,6 +864,10 @@ function initComparisons() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  ensureCommentMenuBackdrop();
+  document.addEventListener('click', () => closeAllCommentMenus());
+  setSubmitButtonVisualState('idle');
+  setSubmitButtonState(false);
     loadComments();
     initImageEnhancements();
     initComparisons();
