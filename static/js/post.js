@@ -2,6 +2,7 @@ const postSlug = window.location.pathname.split('/').pop();
 let replyParentId = null;
 let activeMenuComment = null;
 let commentMenuBackdrop = null;
+const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const submitButtonIcons = {
   send: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.4 20.4l17.45-7.48c.73-.31.73-1.35 0-1.66L3.4 3.78c-.67-.29-1.36.38-1.12 1.08l1.87 5.43a1 1 0 0 0 .95.68h8.16a.75.75 0 0 1 0 1.5H5.1a1 1 0 0 0-.95.68l-1.87 5.43c-.24.7.45 1.37 1.12 1.08z"/></svg>',
@@ -50,6 +51,18 @@ function setSubmitButtonState(isReply) {
   const label = isReply ? 'Post reply' : 'Post comment';
   submitBtn.setAttribute('aria-label', label);
   submitBtn.setAttribute('title', label);
+}
+
+function formatCommentTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: localTimeZone
+  });
 }
 
 function setSubmitButtonVisualState(state) {
@@ -284,14 +297,7 @@ function renderComment(comment, byParent, depth = 0) {
 
   const date = document.createElement('span');
   date.className = 'comment-date';
-  const dateObj = new Date(comment.created_at);
-  date.textContent = dateObj.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  date.textContent = formatCommentTimestamp(comment.created_at);
 
   header.appendChild(author);
   header.appendChild(date);
@@ -342,7 +348,7 @@ function renderComment(comment, byParent, depth = 0) {
     const editedSpan = document.createElement('span');
     editedSpan.className = 'comment-edited';
     editedSpan.textContent = '(Edited)';
-    editedSpan.title = new Date(comment.edited_at).toLocaleString();
+    editedSpan.title = formatCommentTimestamp(comment.edited_at);
     header.appendChild(editedSpan);
   }
 

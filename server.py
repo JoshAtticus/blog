@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
 import html
 import random
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -131,6 +132,7 @@ DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 COMPRESSION_QUALITY = 85
 MAX_IMAGE_WIDTH = 1200 
 processed_images = set()
+PHOENIX_TZ = ZoneInfo('America/Phoenix')
 
 # Security / Rate Limiting
 SUSPICIOUS_ERROR_LIMIT = 10
@@ -1505,6 +1507,46 @@ def get_tags():
     cache.set(cache_key, tags_list, CACHE_TIMEOUT)
     return tags_list
 
+def normalize_comment_timestamp(raw_value):
+    if not raw_value:
+        return None
+
+    timestamp_text = str(raw_value).replace('Z', '+00:00')
+    timestamp = datetime.fromisoformat(timestamp_text)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=PHOENIX_TZ)
+    return timestamp.astimezone(timezone.utc)
+
+def normalize_comment_row(row):
+    comment = dict(row)
+    created_at = normalize_comment_timestamp(comment.get('created_at'))
+    if created_at:
+        comment['created_at'] = created_at.isoformat()
+
+    edited_at = comment.get('edited_at')
+    if edited_at:
+        edited_timestamp = normalize_comment_timestamp(edited_at)
+        if edited_timestamp:
+            comment['edited_at'] = edited_timestamp.isoformat()
+
+    return comment
+
+def get_comment_by_id(comment_id):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT c.id, c.user_id, c.author_name, c.comment_text, c.parent_id, c.created_at, c.is_deleted, c.edited_at, c.source, c.external_id, c.author_avatar_url, u.picture
+        FROM comments c
+        LEFT JOIN users u ON c.user_id = CAST(u.id AS TEXT)
+        WHERE c.id = ?
+    ''', (comment_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return normalize_comment_row(row)
+
 def get_posts_by_tag(tag):
     """Get all posts with a specific tag"""
     cache_key = f'tag_{tag}'
@@ -1535,20 +1577,18 @@ def get_comments_for_post(slug, page=None, per_page=20):
         cursor.execute('SELECT COUNT(*) FROM comments WHERE slug = ? AND parent_id IS NULL', (slug,))
         total_top_level = cursor.fetchone()[0]
         total_pages = (total_top_level + per_page - 1) // per_page if total_top_level > 0 else 1
-        
-        offset = (page - 1) * per_page
-        
-        # get top-level comments for this page
+
         cursor.execute('''
-            SELECT id
+            SELECT id, created_at
             FROM comments
             WHERE slug = ? AND parent_id IS NULL
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-        ''', (slug, per_page, offset))
-        
-        top_level_rows = cursor.fetchall()
-        top_level_ids = [row['id'] for row in top_level_rows]
+        ''', (slug,))
+
+        top_level_rows = [dict(row) for row in cursor.fetchall()]
+        top_level_rows.sort(key=lambda row: normalize_comment_timestamp(row['created_at']) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+
+        offset = (page - 1) * per_page
+        top_level_ids = [row['id'] for row in top_level_rows[offset:offset + per_page]]
         
         if not top_level_ids:
              conn.close()
@@ -1573,7 +1613,7 @@ def get_comments_for_post(slug, page=None, per_page=20):
         '''
         cursor.execute(query, top_level_ids)
         rows = cursor.fetchall()
-        comments = [dict(row) for row in rows]
+        comments = [normalize_comment_row(row) for row in rows]
         conn.close()
         return comments, total_pages, total_top_level
         
@@ -1583,13 +1623,13 @@ def get_comments_for_post(slug, page=None, per_page=20):
             FROM comments c
             LEFT JOIN users u ON c.user_id = CAST(u.id AS TEXT)
             WHERE c.slug = ?
-            ORDER BY c.created_at ASC
         ''', (slug,))
         
         rows = cursor.fetchall()
         conn.close()
         
-        comments = [dict(row) for row in rows]
+        comments = [normalize_comment_row(row) for row in rows]
+        comments.sort(key=lambda comment: normalize_comment_timestamp(comment['created_at']) or datetime.min.replace(tzinfo=timezone.utc))
         return comments, 1, len(comments)
 
 def edit_comment(comment_id, user_id, new_text):
@@ -1608,7 +1648,7 @@ def edit_comment(comment_id, user_id, new_text):
         return False, "Unauthorized"
         
     old_text = row[1]
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     
     cursor.execute('INSERT INTO comment_history (comment_id, old_text, edited_at) VALUES (?, ?, ?)', 
                   (comment_id, old_text, now))
@@ -1649,7 +1689,7 @@ def add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash):
     cursor.execute('''
         INSERT INTO comments (slug, user_id, author_name, comment_text, parent_id, created_at, ip_hash)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (slug, user_id, author_name, comment_text, parent_id, datetime.now().isoformat(), ip_hash))
+    ''', (slug, user_id, author_name, comment_text, parent_id, datetime.now(timezone.utc).isoformat(), ip_hash))
     
     comment_id = cursor.lastrowid
     conn.commit()
@@ -1909,9 +1949,10 @@ def comments_api(slug):
         comment_text = html.escape(comment_text)
         comment_text = comment_text.replace('\n', ' ').replace('\r', '')
         
-        add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
-        
-        return jsonify({"success": True})
+        comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
+        comment = get_comment_by_id(comment_id)
+
+        return jsonify({"success": True, "comment": comment})
 
 @app.route('/api/comments/<int:comment_id>', methods=['PUT', 'DELETE'])
 def comment_action_api(comment_id):
