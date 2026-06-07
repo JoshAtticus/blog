@@ -34,7 +34,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 IPHUB_KEY = os.environ.get('IPHUB_KEY')
 
 def get_ip_type(ip):
-    # Returns: 0 (Residential), 1 (Hosting/Block), -1 (Unknown/Error)
     if not IPHUB_KEY:
         return -1
     try:
@@ -45,41 +44,6 @@ def get_ip_type(ip):
         pass
     return -1
 
-def generate_heavy_payload(ip_id):
-    yield b"<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>Please wait...</h1><div style='display:none;'>"
-    total_bytes = 0
-    chunk_size = 1024 * 1024 # 1MB chunks
-    
-    # Target: 5GB
-    
-    path_template = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10 10 H 90 V 90 H 10 L 10 10 " + "L {} {} ".format
-    
-    while total_bytes < 5 * 1024 * 1024 * 1024:
-        # Generate random garbage SVG data
-        chunk = ""
-        for _ in range(1000): # Batch per chunk
-            points = " ".join([f"L {random.randint(0,100)} {random.randint(0,100)}" for _ in range(50)])
-            chunk += f"<svg><path d='M0 0 {points} Z'/></svg>"
-            
-        encoded_chunk = chunk.encode('utf-8')
-        len_chunk = len(encoded_chunk)
-        total_bytes += len_chunk
-        yield encoded_chunk
-        
-        # Update DB every ~10MB to avoid too many writes
-        if total_bytes % (10 * 1024 * 1024) < len_chunk:
-            try:
-                conn_log = sqlite3.connect(DB_PATH)
-                cursor_log = conn_log.cursor()
-                cursor_log.execute('UPDATE blocked_ips SET data_sent = data_sent + ? WHERE id = ?', (total_bytes, ip_id))
-                conn_log.commit()
-                conn_log.close()
-                total_bytes = 0 
-            except:
-                pass
-
-    yield b"</div></body></html>"
-
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -88,7 +52,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 oauth = OAuth(app)
 
-# Google OAuth
 oauth.register(
     name='google',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -97,7 +60,6 @@ oauth.register(
     client_kwargs={'scope': 'openid email profile'}
 )
 
-# GitHub OAuth
 oauth.register(
     name='github',
     client_id=os.environ.get('GITHUB_CLIENT_ID'),
@@ -110,7 +72,6 @@ oauth.register(
     client_kwargs={'scope': 'user:email'}
 )
 
-# JoshAtticusID OAuth
 oauth.register(
     name='joshatticus',
     client_id=os.environ.get('JOSHATTICUS_CLIENT_ID'),
@@ -131,25 +92,16 @@ DB_PATH = os.environ.get('DB_PATH', 'blog.db')
 
 COMPRESSION_QUALITY = 85
 MAX_IMAGE_WIDTH = 1200 
-processed_images = set()
 PHOENIX_TZ = ZoneInfo('America/Phoenix')
 
-# Security / Rate Limiting
 SUSPICIOUS_ERROR_LIMIT = 10
-SUSPICIOUS_ERROR_WINDOW = 60  # 1 minute
-SUSPICIOUS_BLOCK_DURATION = 3600  # 1 hour
+SUSPICIOUS_ERROR_WINDOW = 60
+SUSPICIOUS_BLOCK_DURATION = 3600
 
 @app.context_processor
 def inject_globals():
-    # GDPR (EU + UK) list
     privacy_countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'UK']
-    
-    # Get country from Cloudflare header
     country = request.headers.get('CF-IPCountry', '').upper()
-    
-    # Show in EU/UK or US (for California)
-    # If header is missing (e.g. local dev), default to False or maybe True depending on preference.
-    # Here defaulting to False to avoid annoyance during dev, can be forced for testing.
     is_privacy_region = country in privacy_countries or country == 'US' or os.environ.get('FORCE_PRIVACY_BANNER') == 'true'
     
     return {
@@ -189,12 +141,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS analytics_pageviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             slug TEXT NOT NULL,
-            user_id TEXT, -- Cookie UUID or Logged in User ID
+            user_id TEXT,
             ip_hash TEXT,
             user_agent TEXT,
             referrer TEXT,
-            event_type TEXT DEFAULT 'view', -- 'view' or 'share'
-            platform TEXT, -- e.g. 'twitter', 'facebook', 'copy', etc
+            event_type TEXT DEFAULT 'view',
+            platform TEXT,
             viewed_at TEXT NOT NULL
         )
     ''')
@@ -345,10 +297,7 @@ def robots_txt():
     response.headers["Content-Type"] = "text/plain"
     return response
 
-from flask import Response
-
 def stream_heavy_block(ip, db_id):
-    # Determine IP Type (Residential/Hosting)
     current_type = -1
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -357,7 +306,6 @@ def stream_heavy_block(ip, db_id):
         row = cursor.fetchone()
         current_type = row[0] if row else -1
         
-        # Check IPHub if not already checked
         if (current_type == -1 or current_type is None) and IPHUB_KEY:
             try:
                 r = requests.get(f"http://v2.api.iphub.info/ip/{ip}", headers={"X-Key": IPHUB_KEY}, timeout=3)
@@ -372,24 +320,19 @@ def stream_heavy_block(ip, db_id):
     except Exception:
         pass
 
-    # Generator for Massive Data
     def generate():
         total_streamed = 0
-        limit = 5 * 1024 * 1024 * 1024 # 5GB
-        chunk_size = 100 * 1024 * 1024 # 100MB for DB updates (reduce write frequency)
+        limit = 5 * 1024 * 1024 * 1024
         
         # Pre-calculate a LARGER chunk to maximize throughput on 4Gbps link
-        # 100KB chunks might be too small for 4Gbps (requires too many context switches)
-        # Let's aim for ~1MB chunks to reduce Python loop overhead
         complex_path = "M 0 0 " + " ".join([f"Q {i%500} {(i*2)%500} {(i*3)%500} {(i*4)%500}" for i in range(100)])
         svg_template = f"<svg width='500' height='500'><path d='{complex_path}' fill='none' stroke='black'/></svg>"
-        heavy_chunk = (svg_template * 500).encode('utf-8') # Approx 1MB per yield
+        heavy_chunk = (svg_template * 500).encode('utf-8')
         chunk_len = len(heavy_chunk)
         
         yield b"<!DOCTYPE html><html><head><title>Admin Panel Loading...</title></head><body><h1>Loading Assets...</h1><div style='display:none;'>"
         
         chunk_accum = 0
-        
         try:
             while total_streamed < limit:
                 yield heavy_chunk
@@ -397,7 +340,6 @@ def stream_heavy_block(ip, db_id):
                 chunk_accum += chunk_len
             
             yield b"</div></body></html>"
-            
         finally:
             # Update DB only ONCE at the end of the connection (whether complete or aborted)
             if chunk_accum > 0:
@@ -414,13 +356,10 @@ def check_suspicious_block():
     ip = request.remote_addr
     path = request.path
     
-    # Allow finalizing the honeypot block
     if path.startswith('/api/honeypot/finalize'):
         return
 
     is_blocked = False
-    
-    # 1. Check Cookie Block (Validate against DB)
     tracking_id = request.cookies.get('wpadm_session')
     db_id = None
     
@@ -437,13 +376,10 @@ def check_suspicious_block():
         except:
              pass
 
-    # 2. Check IP Cache Block OR DB Block
     if not is_blocked:
-        # Check Cache first (fast)
         if cache.get(f'honeypot_blocked_{ip}'):
             is_blocked = True
         else:
-            # Check DB
             try:
                 conn = sqlite3.connect(DB_PATH)
                 c = conn.cursor()
@@ -451,16 +387,12 @@ def check_suspicious_block():
                 row = c.fetchone()
                 if row:
                     is_blocked = True
-                    # Refresh cache for speed
                     cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
                 conn.close()
             except: pass
 
-            
     if is_blocked:
-        # If accessing the Honeypot AGAIN, serve the heavy payload
         if path == '/wp-admin-login':
-             # Find existing record if we don't have it from cookie
             if not db_id:
                 try:
                     conn = sqlite3.connect(DB_PATH)
@@ -482,18 +414,15 @@ def check_suspicious_block():
 
 @app.route('/wp-admin-login')
 def honeypot():
-    # 1. Log Initial Access (Server-side Only)
     ip = request.remote_addr
     user_agent = request.user_agent.string
     country = request.headers.get('CF-IPCountry', 'Unknown')
     headers_dict = dict(request.headers)
     
-    # Check if already blocked (IP or Cookie)
     cookie_blocked = False
     tracking_id = request.cookies.get('wpadm_session')
     
     if tracking_id:
-        # Validate if this cookie actually corresponds to an ACTIVE block
         try:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
@@ -506,10 +435,7 @@ def honeypot():
     if cache.get(f'honeypot_blocked_{ip}') or cookie_blocked:
          return render_template('blocked.html'), 403
 
-    # Generate a tracking ID
     tracking_id = str(uuid.uuid4())
-    
-    # Store temporary context in cache to link with JS data later
     cache.set(f'honeypot_pending_{tracking_id}', {
         'ip': ip,
         'ua': user_agent,
@@ -521,14 +447,13 @@ def honeypot():
     resp = make_response(render_template('honeypot_loading.html'))
     resp.set_cookie('wpadm_session', tracking_id, max_age=60*60*24*365*10, httponly=True, samesite='Lax')
     
-    # 3. Log "Initial Hit" to DB immediately (for non-JS bots)
+    # Log initial hit for non-JS bots
     block_duration = 60 * 60 * 24 * 7 
     blocked_until = datetime.now(timezone.utc) + timedelta(seconds=block_duration)
     
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        # Check if already blocked to avoid duplicates
         cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ? AND reason LIKE "%Honeypot%"', (ip,))
         existing = cursor.fetchone()
         
@@ -542,21 +467,16 @@ def honeypot():
     except Exception as e:
         print(f"Error logging honeypot access: {e}")
         
-    # 4. Set Cache Block (Effective immediately for next request)
     cache.set(f'honeypot_blocked_{ip}', True, timeout=block_duration)
-    
     return resp
 
 @app.route('/api/honeypot/finalize', methods=['POST'])
 def honeypot_finalize():
-    # 2. Receive JS Fingerprint Data and Finalize Block
     tracking_id = request.cookies.get('wpadm_session')
     client_data = request.json or {}
     fingerprint_hash = client_data.get('fingerprint_hash')
-    
     ip = request.remote_addr
     
-    # Create Full Fingerprint Record
     full_log = {
         'client_fingerprint': client_data,
         'cookies': dict(request.cookies),
@@ -568,17 +488,9 @@ def honeypot_finalize():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Check and store fingerprint block
         if fingerprint_hash:
-            # Is this fingerprint already blocked?
             cursor.execute('SELECT id FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fingerprint_hash,))
-            if cursor.fetchone():
-                # BLOCK THIS IP because fingerprint is banned
-                # But we are already blocking this IP because it hit the honeypot.
-                # However, user says "If another IP with the same canvas fingerprint then tries to access the site..."
-                pass
-            else:
-                # Store new fingerprint
+            if not cursor.fetchone():
                 cursor.execute('INSERT INTO blocked_fingerprints (fingerprint_hash, reason) VALUES (?, ?)', (fingerprint_hash, 'Associated with Honeypot Hit'))
         
         cursor.execute('''
@@ -588,8 +500,6 @@ def honeypot_finalize():
         ''', (json.dumps(full_log), 'Accessing /wp-admin-login (Honeypot - Fingerprinted)', tracking_id, ip))
         
         if cursor.rowcount == 0:
-            # Fallback insert if not found
-            # Indefinite block (100 years from now)
             blocked_until = datetime.now(timezone.utc) + timedelta(days=365*100)
             country = request.headers.get('CF-IPCountry', 'Unknown')
             user_agent = request.user_agent.string
@@ -603,18 +513,13 @@ def honeypot_finalize():
     except Exception as e:
         print(f"Error logging blocked IP to DB: {e}")
         
-    # Ensure cache block is set (limit to max cache int, approx 30 days is fine for now, or just huge)
-    # Flask-Cache doesn't guarantee indefinite but we can set a large number.
     cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
-    
     return jsonify({"status": "blocked"})
-
 
 @app.after_request
 def monitor_suspicious_activity(response):
     if response.status_code >= 400 and response.status_code not in [401, 403]:
         ip = request.remote_addr
-        
         error_key = f'errors_{ip}'
         errors = cache.get(error_key) or 0
         errors += 1
@@ -626,9 +531,7 @@ def monitor_suspicious_activity(response):
             
     return response
 
-# Authentication Helpers and Routes
 def get_current_user():
-    """Get the currently logged in user from session"""
     if 'user_id' not in session:
         return None
     
@@ -701,7 +604,6 @@ def auth_callback(provider):
     elif provider == 'joshatticus':
         # i HATE openid so much it's a scam i wasted 30 minutes on ts
         user_info = client.userinfo()
-        
         oauth_id = user_info.get('sub')
         email = user_info.get('email')
         email_verified = user_info.get('email_verified', False)
@@ -770,7 +672,6 @@ def auth_status():
     return jsonify({'authenticated': False})
 
 def get_share_platform_from_user_agent(user_agent):
-    """Return platform name if user agent matches a known share bot, else None"""
     if not user_agent:
         return None
     bot_map = {
@@ -804,17 +705,14 @@ def get_share_platform_from_user_agent(user_agent):
     return None
 
 def hash_ip(ip_address):
-    """Hash IP address for privacy"""
     return hashlib.sha256(ip_address.encode()).hexdigest()
 
 def get_client_ip():
-    """Get client IP address, considering X-Forwarded-For header"""
     if 'X-Forwarded-For' in request.headers:
         return request.headers['X-Forwarded-For'].split(',')[0].strip()
     return request.remote_addr or ''
 
 def check_ip_rate_limit(slug, ip_hash):
-    """Check if IP has exceeded rate limit (5 views per post per month)"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -830,7 +728,6 @@ def check_ip_rate_limit(slug, ip_hash):
     return count < 5
 
 def has_user_viewed(slug, user_id):
-    """Check if user has already viewed this post"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -840,10 +737,7 @@ def has_user_viewed(slug, user_id):
     conn.close()
     return result is not None
 
-# record_user_view is no longer needed as log_analytics_view handles it
-
 def get_view_count(slug):
-    """Get the view count for a post"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT view_count FROM post_views WHERE slug = ?', (slug,))
@@ -852,7 +746,6 @@ def get_view_count(slug):
     return result[0] if result else 0
 
 def get_shares_count(slug):
-    """Get the shares count for a post"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT shares_count FROM post_views WHERE slug = ?', (slug,))
@@ -861,7 +754,6 @@ def get_shares_count(slug):
     return result[0] if result else 0
 
 def increment_view_count(slug):
-    """Increment the view count for a post"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -875,7 +767,6 @@ def increment_view_count(slug):
     conn.close()
 
 def increment_shares_count(slug):
-    """Increment the shares count for a post"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -888,8 +779,6 @@ def increment_shares_count(slug):
     conn.commit()
     conn.close()
     
-    # Log analytics event
-    # We might not have request context here if called from background, but usually it is from request
     # idfk why we wouldn't have it tho
     try:
         user_id = request.cookies.get('blog_user_id') or 'unknown'
@@ -900,7 +789,6 @@ def increment_shares_count(slug):
         pass
 
 def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type='view', platform=None):
-    """Log a page view or event for analytics"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -909,7 +797,6 @@ def log_analytics_view(slug, user_id, ip_hash, user_agent, referrer, event_type=
     ''', (slug, user_id, ip_hash, user_agent, referrer, event_type, platform, datetime.now().isoformat()))
     conn.commit()
     conn.close()
-
 
 @app.before_request
 def auto_log_share_from_bot():
@@ -926,7 +813,7 @@ def auto_log_share_from_bot():
             key = f'sharebot_{slug}_{platform}'
             if not cache.get(key):
                 log_analytics_view(slug, user_id, ip_hash, user_agent, request.referrer, 'share', platform)
-                cache.set(key, True, timeout=60)  # avoid duplicate logs for same session
+                cache.set(key, True, timeout=60)
 
 MD_EXTENSIONS = [
     'tables',
@@ -934,7 +821,6 @@ MD_EXTENSIONS = [
 ]
 
 def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QUALITY):
-    """Compress an image and return it as bytes"""
     MAX_HEIGHT = 1600
     cache_key = f'img_{image_path}_{max_width}_{quality}'
     cached_image = cache.get(cache_key)
@@ -950,7 +836,6 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             return file_data
             
         img = Image.open(image_path)
-        
         needs_resize = False
         ratio = 1.0
         
@@ -991,11 +876,10 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
         return file_data
 
 def generate_image_sizes(image_path):
-    """Generate three sizes of an image: placeholder (blur), thumbnail, and full"""
     sizes = {
-        'placeholder': (50, 20),  # Very small, low quality for instant load
-        'thumbnail': (800, 70),    # Medium size for main display
-        'full': (1200, 85)         # Full quality
+        'placeholder': (50, 20),
+        'thumbnail': (800, 70),
+        'full': (1200, 85)
     }
     
     results = {}
@@ -1016,7 +900,6 @@ def generate_image_sizes(image_path):
                 continue
             
             img = Image.open(image_path)
-            
             ratio = min(width / img.width, 1.0)
             new_width = int(img.width * ratio)
             new_height = int(img.height * ratio)
@@ -1037,7 +920,6 @@ def generate_image_sizes(image_path):
             
             results[size_name] = compressed_data
             cache.set(cache_key, compressed_data, CACHE_TIMEOUT)
-            
         except Exception as e:
             print(f"Error generating {size_name} for {image_path}: {e}")
             with open(image_path, 'rb') as f:
@@ -1048,9 +930,7 @@ def generate_image_sizes(image_path):
     return results
 
 def parse_front_matter(content):
-    """Parse front matter from Markdown content"""
     front_matter = {}
-    
     front_matter_match = re.match(r"---\n(.*?)\n---", content, re.DOTALL)
     if front_matter_match:
         front_matter_text = front_matter_match.group(1)
@@ -1101,10 +981,6 @@ def extract_and_remove_first_image(html_content):
     return first_image, content_without_first_image
 
 def enforce_link_target_blank(html_content: str) -> str:
-    """Ensure all <a> tags open in a new tab with safe rel attributes.
-    - Adds target="_blank" and rel="noopener noreferrer" to all anchor tags.
-    - Replaces existing target/rel if present.
-    """
     if not html_content:
         return html_content
 
@@ -1126,12 +1002,6 @@ def clean_for_summary(html_content):
     return text.strip()
 
 def process_image_comparison(html_content):
-    """
-    Replaces [[compare: left_source | right_source | caption]] with HTML for comparison slider.
-    Supports images and videos.
-    Caption is optional.
-    Handles potential <p> wrappers added by Markdown.
-    """
     pattern = r'(?:<p>\s*)?\[\[compare:\s*(.*?)\s*\|\s*(.*?)(?:\s*\|\s*(.*?))?\]\](?:\s*</p>)?'
     
     def get_media_tag(src, class_name):
@@ -1139,8 +1009,7 @@ def process_image_comparison(html_content):
         is_video = src.lower().endswith(('.mp4', '.webm', '.mov', '.ogg'))
         if is_video:
             return f'<video class="{class_name}" src="{src}" preload="metadata" muted playsinline></video>'
-        else:
-            return f'<img class="{class_name}" src="{src}" alt="">'
+        return f'<img class="{class_name}" src="{src}" alt="">'
 
     def repl(match):
         left_src = match.group(1)
@@ -1163,26 +1032,7 @@ def process_image_comparison(html_content):
             </div>
             '''
         
-        left_tag = get_media_tag(left_src, "comparison-image-under")
-        right_tag = get_media_tag(right_src, "comparison-image-over")
-        
-        # Check if we need controls
-        has_video = any(src.strip().lower().endswith(('.mp4', '.webm', '.mov', '.ogg')) for src in [left_src, right_src])
-        
-        controls_html = ""
-        if has_video:
-            controls_html = '''
-            <div class="comparison-controls">
-                <button class="comp-play-btn" aria-label="Play">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                </button>
-                <div class="comp-progress-container">
-                    <div class="comp-progress-bar"></div>
-                </div>
-            </div>
-            '''
-        
-        html = f'''
+        return f'''
         <div class="comparison-container">
           <div class="comparison-inner">
             {left_tag}
@@ -1195,68 +1045,56 @@ def process_image_comparison(html_content):
           <div class="comparison-caption">{caption}</div>
         </div>
         '''
-        return html
 
     return re.sub(pattern, repl, html_content)
 
 def process_twitter_embed(html_content):
-    """
-    Replaces [[twitter: url]] with Twitter embed HTML.
-    """
     pattern = r'(?:<p>\s*)?\[\[twitter:\s*(.*?)\]\](?:\s*</p>)?'
     
     def repl(match):
         url = match.group(1).strip()
-        
-        html = f'''
+        return f'''
         <blockquote class="twitter-tweet" data-dnt="true" data-theme="dark">
           <a href="{url}">Loading Twitter embed, if it's not loading, click here to open the post in a new tab</a>
         </blockquote>
         <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
         '''
-        return html
 
     return re.sub(pattern, repl, html_content)
 
 def process_youtube_embed(html_content):
-    """
-        Replaces [[youtube: video_id]] with a YouTube nocookie embed.
-    """
     pattern = r'(?:<p>\s*)?\[\[youtube:\s*(.*?)\]\](?:\s*</p>)?'
 
     def repl(match):
-                value = match.group(1).strip()
+        value = match.group(1).strip()
+        video_id = value
+        if 'youtube.com' in value or 'youtu.be' in value:
+            parsed = urlparse(value)
+            if 'youtu.be' in parsed.netloc:
+                video_id = parsed.path.lstrip('/')
+            else:
+                query_params = parse_qs(parsed.query)
+                video_id = query_params.get('v', [''])[0]
+                if not video_id and '/embed/' in parsed.path:
+                    video_id = parsed.path.split('/embed/')[-1].split('/')[0]
 
-                video_id = value
-                if 'youtube.com' in value or 'youtu.be' in value:
-                        parsed = urlparse(value)
-                        if 'youtu.be' in parsed.netloc:
-                                video_id = parsed.path.lstrip('/')
-                        else:
-                                query_params = parse_qs(parsed.query)
-                                video_id = query_params.get('v', [''])[0]
-                                if not video_id and '/embed/' in parsed.path:
-                                        video_id = parsed.path.split('/embed/')[-1].split('/')[0]
+        video_id = re.sub(r'[^A-Za-z0-9_-]', '', video_id)
+        if not video_id:
+            return match.group(0)
 
-                video_id = re.sub(r'[^A-Za-z0-9_-]', '', video_id)
-                if not video_id:
-                        return match.group(0)
-
-                embed_url = f'https://www.youtube-nocookie.com/embed/{video_id}'
-
-                html = f'''
-                <div class="youtube-embed">
-                    <iframe
-                        src="{embed_url}"
-                        title="YouTube video player"
-                        loading="lazy"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowfullscreen>
-                    </iframe>
-                </div>
-                '''
-                return html
+        embed_url = f'https://www.youtube-nocookie.com/embed/{video_id}'
+        return f'''
+        <div class="youtube-embed">
+            <iframe
+                src="{embed_url}"
+                title="YouTube video player"
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+            </iframe>
+        </div>
+        '''
 
     return re.sub(pattern, repl, html_content)
 
@@ -1298,9 +1136,7 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
 
 def fetch_wasteof_replies(cursor, post_slug, comment_id):
     page = 1
-    headers = {
-        'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'
-    }
+    headers = {'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'}
     while True:
         try:
             resp = requests.get(f"https://api.wasteof.money/comments/{comment_id}/replies?page={page}", headers=headers, timeout=10)
@@ -1320,7 +1156,6 @@ def fetch_wasteof_replies(cursor, post_slug, comment_id):
             break
 
 def sync_wasteof_comments(post_slug, wasteof_link):
-    """Sync comments from wasteof.money"""
     try:
         match = re.search(r'wasteof\.money/posts/([a-f0-9]+)', wasteof_link)
         if not match:
@@ -1328,12 +1163,9 @@ def sync_wasteof_comments(post_slug, wasteof_link):
             return
         
         post_id = match.group(1)
-        
         comments = []
         page = 1
-        headers = {
-            'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'
-        }
+        headers = {'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'}
         while True:
             try:
                 resp = requests.get(f"https://api.wasteof.money/posts/{post_id}/comments?page={page}", headers=headers, timeout=10)
@@ -1353,13 +1185,11 @@ def sync_wasteof_comments(post_slug, wasteof_link):
         
         for comment in comments:
             process_wasteof_comment(cursor, post_slug, comment, None)
-            
             if comment.get('hasReplies'):
                 fetch_wasteof_replies(cursor, post_slug, comment['_id'])
         
         conn.commit()
         conn.close()
-        
     except Exception as e:
         print(f"Error syncing wasteof comments for {post_slug}: {e}")
 
@@ -1402,7 +1232,6 @@ def run_wasteof_sync():
             time.sleep(900) 
             
         except IOError:
-
             time.sleep(60)
         except Exception as e:
             print(f"Unexpected error in sync thread: {e}")
@@ -1413,7 +1242,6 @@ def start_wasteof_sync_thread():
     thread.start()
 
 def get_all_posts():
-    """Get all posts with their metadata"""
     posts = cache.get('all_posts')
     if posts is not None:
         return posts
@@ -1425,7 +1253,6 @@ def get_all_posts():
                 content = f.read()
             
             front_matter = parse_front_matter(content)
-            
             content_without_front_matter = re.sub(r"---\n.*?\n---\n", "", content, flags=re.DOTALL)
             
             html_content = markdown.markdown(content_without_front_matter, extensions=MD_EXTENSIONS)
@@ -1436,10 +1263,10 @@ def get_all_posts():
             
             first_image, content_without_first_image = extract_and_remove_first_image(html_content)
             
+            # there is no default banner I put this here so python doesn't shit itself but it probably still will so I haven't tested it
             if not first_image:
-                first_image = "assets/default-banner.jpg" # there is no default banner I put this here so python doesn't shit itself but it probably still will so I haven't tested it
+                first_image = "assets/default-banner.jpg"
             
-            # Use custom summary from front matter if available, otherwise auto-generate
             if 'summary' in front_matter:
                 summary_text = front_matter['summary']
             else:
@@ -1447,7 +1274,6 @@ def get_all_posts():
                 summary_text = summary_text[:150] + "..." if len(summary_text) > 150 else summary_text
             
             post_filename = os.path.splitext(filename)[0] + ".html"
-            
             posts.append({
                 "title": front_matter.get('title', "Untitled"),
                 "date": front_matter.get('date', datetime.now().strftime("%Y-%m-%d")),
@@ -1461,13 +1287,10 @@ def get_all_posts():
             })
     
     posts.sort(key=lambda x: x["date"], reverse=True)
-    
     cache.set('all_posts', posts, CACHE_TIMEOUT)
-    
     return posts
 
 def get_post_by_slug(slug):
-    """Get a specific post by its slug"""
     cache_key = f'post_{slug}'
     cached_post = cache.get(cache_key)
     if cached_post is not None:
@@ -1478,11 +1301,9 @@ def get_post_by_slug(slug):
         if post['slug'] == slug:
             cache.set(cache_key, post, CACHE_TIMEOUT)
             return post
-    
     return None
 
 def get_tags():
-    """Get all tags with count of posts"""
     cache_key = 'all_tags'
     cached_tags = cache.get(cache_key)
     if cached_tags is not None:
@@ -1490,7 +1311,6 @@ def get_tags():
     
     posts = get_all_posts()
     tags = {}
-    
     for post in posts:
         for tag in post.get('tags', []):
             if tag not in tags:
@@ -1503,7 +1323,6 @@ def get_tags():
     
     tags_list = list(tags.values())
     tags_list.sort(key=lambda x: x['name'])
-    
     cache.set(cache_key, tags_list, CACHE_TIMEOUT)
     return tags_list
 
@@ -1548,7 +1367,6 @@ def get_comment_by_id(comment_id):
     return normalize_comment_row(row)
 
 def get_posts_by_tag(tag):
-    """Get all posts with a specific tag"""
     cache_key = f'tag_{tag}'
     cached_posts = cache.get(cache_key)
     if cached_posts is not None:
@@ -1556,7 +1374,6 @@ def get_posts_by_tag(tag):
     
     posts = get_all_posts()
     tag_lower = tag.lower()
-    
     tagged_posts = [post for post in posts if any(t.lower().replace(' ', '-') == tag_lower for t in post.get('tags', []))]
     
     if not tagged_posts:
@@ -1567,13 +1384,11 @@ def get_posts_by_tag(tag):
     return tagged_posts
 
 def get_comments_for_post(slug, page=None, per_page=20):
-    """Get comments for a post, optionally paginated by top-level threads"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     if page:
-        # count top-level comments
         cursor.execute('SELECT COUNT(*) FROM comments WHERE slug = ? AND parent_id IS NULL', (slug,))
         total_top_level = cursor.fetchone()[0]
         total_pages = (total_top_level + per_page - 1) // per_page if total_top_level > 0 else 1
@@ -1594,7 +1409,6 @@ def get_comments_for_post(slug, page=None, per_page=20):
              conn.close()
              return [], 1, 0
              
-        # get full tree for these top-level comments using Recursive CTE
         placeholders = ','.join(['?'] * len(top_level_ids))
         query = f'''
             WITH RECURSIVE comment_tree AS (
@@ -1616,7 +1430,6 @@ def get_comments_for_post(slug, page=None, per_page=20):
         comments = [normalize_comment_row(row) for row in rows]
         conn.close()
         return comments, total_pages, total_top_level
-        
     else:
         cursor.execute('''
             SELECT c.id, c.user_id, c.author_name, c.comment_text, c.parent_id, c.created_at, c.is_deleted, c.edited_at, u.picture
@@ -1652,7 +1465,6 @@ def edit_comment(comment_id, user_id, new_text):
     
     cursor.execute('INSERT INTO comment_history (comment_id, old_text, edited_at) VALUES (?, ?, ?)', 
                   (comment_id, old_text, now))
-                  
     cursor.execute('UPDATE comments SET comment_text = ?, edited_at = ? WHERE id = ?', 
                   (new_text, now, comment_id))
                   
@@ -1676,13 +1488,11 @@ def delete_comment(comment_id, user_id, is_admin=False):
         return False, "Unauthorized"
         
     cursor.execute('UPDATE comments SET is_deleted = 1 WHERE id = ?', (comment_id,))
-    
     conn.commit()
     conn.close()
     return True, None
 
 def add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash):
-    """Add a new comment"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -1694,11 +1504,9 @@ def add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash):
     comment_id = cursor.lastrowid
     conn.commit()
     conn.close()
-    
     return comment_id
 
 def check_comment_rate_limit(user_id, ip_hash):
-    """Check if user/IP can post comment (max 10 per hour)"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -1710,11 +1518,9 @@ def check_comment_rate_limit(user_id, ip_hash):
     
     count = cursor.fetchone()[0]
     conn.close()
-    
     return count < 10
 
 def check_reply_rate_limit(user_id, ip_hash):
-    """Check if user/IP can post reply (max 5 per 10 minutes)"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -1726,10 +1532,8 @@ def check_reply_rate_limit(user_id, ip_hash):
     
     count = cursor.fetchone()[0]
     conn.close()
-    
     return count < 5
 
-# api endpoints
 @app.route('/')
 def index():
     page = request.args.get('page', 1, type=int)
@@ -1757,7 +1561,6 @@ def post(slug):
     
     user_agent = request.headers.get('User-Agent', '')
     platform = get_share_platform_from_user_agent(user_agent)
-    # if it's a bot, increment shares count with platform
     if platform:
         increment_shares_count(slug)
     else:
@@ -1772,7 +1575,6 @@ def post(slug):
         if not has_viewed and within_rate_limit:
             increment_view_count(slug)
     
-    # views & shares
     view_count = get_view_count(slug)
     shares_count = get_shares_count(slug)
     
@@ -1787,7 +1589,6 @@ def post(slug):
                           view_count=view_count,
                           shares_count=shares_count))
     
-    # user id cookie
     if not platform and not request.cookies.get('blog_user_id'):
         expires = datetime.now() + timedelta(days=365)
         response.set_cookie('blog_user_id', user_id, expires=expires, httponly=True, samesite='Lax')
@@ -1819,7 +1620,6 @@ def tag(tag_slug):
     posts = tagged_posts[start:end]
     
     tag_name = tag_slug.replace('-', ' ')
-    
     return render_template('tag.html', 
                           tag=tag_name, 
                           posts=posts, 
@@ -1862,13 +1662,11 @@ def search():
 
 @app.route('/api/search')
 def api_search():
-    """API endpoint for search to support instant search"""
     query = request.args.get('q', '').lower()
     results = []
     
     if query:
         posts = get_all_posts()
-        
         for post in posts:
             if (query in post['title'].lower() or 
                 query in post['summary'].lower() or 
@@ -1905,7 +1703,6 @@ def comments_api(slug):
         })
     
     elif request.method == 'POST':
-        # are you logged in?
         user = get_current_user()
         if not user:
             return jsonify({"error": "Authentication required"}), 401
@@ -1914,17 +1711,13 @@ def comments_api(slug):
         if not user.get('email_verified'):
             return jsonify({"error": "Verified email required to comment"}), 403
             
-        # check if banned
         if user.get('is_banned'):
             return jsonify({"error": "You are banned from commenting."}), 403
 
         data = request.get_json()
-        
-        # user info
         user_id = str(user['id'])
         author_name = user['name']
         
-        # ip hashes
         client_ip = get_client_ip()
         ip_hash = hash_ip(client_ip)
         
@@ -1951,7 +1744,6 @@ def comments_api(slug):
         
         comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
         comment = get_comment_by_id(comment_id)
-
         return jsonify({"success": True, "comment": comment})
 
 @app.route('/api/comments/<int:comment_id>', methods=['PUT', 'DELETE'])
@@ -2096,7 +1888,6 @@ def admin_blocked_ip_analysis(id):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
     cursor.execute('SELECT * FROM blocked_ips WHERE id = ?', (id,))
     row = cursor.fetchone()
     
@@ -2120,38 +1911,20 @@ def admin_blocked_ip_analysis(id):
         try:
             extra = json.loads(extra_info_str)
             client_fp = extra.get('client_fingerprint', {})
-            
-            # Extract basic details if available (client_fp structure depends on JS implementation)
-            # Assuming typical fingerprintjs structure or similar flat structure from JS
             analysis['details']['screen_res'] = f"{client_fp.get('screen_width', '?')}x{client_fp.get('screen_height', '?')}"
             analysis['details']['timezone'] = client_fp.get('timezone', 'Unknown')
             analysis['details']['platform'] = client_fp.get('platform', 'Unknown')
             analysis['details']['renderer'] = client_fp.get('webgl_renderer', 'Unknown')
             
-            # Extract Hash
             fp_hash = client_fp.get('fingerprint_hash')
             if fp_hash:
                 analysis['fingerprint_hash'] = fp_hash
-                
-                # Check for other IPs with this hash
-                # Since extra_info is JSON string, checking exact match is hard but we can check if string contains hash
-                # A more robust way would be needed for production, but strict hash check inside JSON string is decent proxy
-                
-                # Or query the blocked_fingerprints table? No, that just lists banned hashes.
-                # We need to know WHICH IPs share it.
-                # We have to fetch all blocked IPs with extra_info and parse... which is slow for many records.
-                # ALTERNATIVE: checking `tracking_id` which might be cleaner if cookies persists.
-                
-                # Let's try to find by string matching the hash in extra_info column.
-                # extra_info LIKE '%"fingerprint_hash": "THE_HASH"%'
-                
                 search_pattern = f'%"{fp_hash}"%'
                 cursor.execute('SELECT ip_address, created_at FROM blocked_ips WHERE extra_info LIKE ? AND id != ? ORDER BY created_at DESC LIMIT 50', (search_pattern, id))
                 related_rows = cursor.fetchall()
                 
                 analysis['fingerprint_shared_count'] = len(related_rows)
                 analysis['related_ips'] = [{"ip": r['ip_address'], "date": r['created_at']} for r in related_rows[:10]]
-                
         except Exception as e:
             print(f"Error parsing extra info: {e}")
             pass
@@ -2173,8 +1946,6 @@ def admin_invoicing():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # 1. Get Totals for Summary (Global)
-    # We want total cost across ALL blocked IPs, not just current page
     cursor.execute('''
         SELECT 
             SUM(data_sent) as total_bytes,
@@ -2188,11 +1959,6 @@ def admin_invoicing():
     residential_count = summary_row['residential_count'] or 0
     total_records = summary_row['total_records']
     
-    # Calculate global costs based on total bytes (approximate, since per-IP calculation is more correct)
-    # But for "Est Cost", summing up (2 * specific_ip_gb) is same as 2 * (sum_gb) IF we assume all residential.
-    # Actually, we only charge for residential.
-    
-    # Let's do it properly: Sum data_sent for residential IPs only for cost calculation
     cursor.execute('''
         SELECT SUM(data_sent) FROM blocked_ips WHERE data_sent > 0 AND ip_type = 0
     ''')
@@ -2202,8 +1968,6 @@ def admin_invoicing():
     total_cost_low = 2 * res_gb
     total_cost_high = 15 * res_gb
     
-    # 2. Get Paginated Rows
-    # Fetch data for invoicing table
     cursor.execute('''
         SELECT id, ip_address, ip_type, data_sent, created_at 
         FROM blocked_ips 
@@ -2212,22 +1976,17 @@ def admin_invoicing():
         LIMIT ? OFFSET ?
     ''', (per_page, offset))
     rows = cursor.fetchall()
-    
     conn.close()
     
     total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
-    
     invoices = []
     
     for row in rows:
         r = dict(row)
         data_b = r['data_sent'] or 0
         data_gb = data_b / (1024 * 1024 * 1024)
-        
-        # User formula: (2*d) and (15*d)
         cost_l = 2 * data_gb
         cost_h = 15 * data_gb
-        
         is_res = r['ip_type'] == 0
         
         invoices.append({
@@ -2267,12 +2026,10 @@ def admin_unblock_ip(id):
         ip = row['ip_address']
         extra_info_str = row['extra_info']
         
-        # Check for fingerprint and remove from blocked_fingerprints
         if extra_info_str:
             try:
                 extra = json.loads(extra_info_str)
                 client_fp = extra.get('client_fingerprint')
-                # Try getting hash from client_fingerprint dict OR directly if structured differently
                 fp_hash = None
                 if isinstance(client_fp, dict):
                     fp_hash = client_fp.get('fingerprint_hash')
@@ -2281,11 +2038,9 @@ def admin_unblock_ip(id):
                     cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
             except: pass
 
-        # Remove from DB (delete all records for this IP to ensure full unblock)
         cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
         conn.commit()
         
-        # Remove from cache
         cache.delete(f'honeypot_blocked_{ip}')
         cache.delete(f'blocked_{ip}')
         
@@ -2305,16 +2060,12 @@ def admin_lookup_ip():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
     cursor.execute('SELECT * FROM blocked_ips WHERE ip_address = ? ORDER BY created_at DESC', (ip,))
     rows = cursor.fetchall()
-    
     history = [dict(row) for row in rows]
-    
     conn.close()
     
     is_blocked_cache = cache.get(f'honeypot_blocked_{ip}') or cache.get(f'blocked_{ip}')
-    
     return jsonify({
         "ip": ip,
         "is_blocked": bool(rows) or bool(is_blocked_cache),
@@ -2330,7 +2081,7 @@ def admin_blocked_ip_action():
         
     data = request.json
     ip = data.get('ip')
-    action = data.get('action') # 'block', 'unblock'
+    action = data.get('action')
     
     if not ip or not action:
         return jsonify({"error": "Missing params"}), 400
@@ -2339,7 +2090,6 @@ def admin_blocked_ip_action():
     cursor = conn.cursor()
     
     if action == 'unblock':
-        # 1. Find fingerprints to unblock too
         cursor.execute('SELECT extra_info FROM blocked_ips WHERE ip_address = ?', (ip,))
         for row in cursor.fetchall():
             if row[0]:
@@ -2351,30 +2101,22 @@ def admin_blocked_ip_action():
                              cursor.execute('DELETE FROM blocked_fingerprints WHERE fingerprint_hash = ?', (fp_hash,))
                 except: pass
 
-        # 2. Delete IP Records
         cursor.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
-        
-        # 3. Clear Cache
         cache.delete(f'honeypot_blocked_{ip}')
         cache.delete(f'blocked_{ip}')
-        
     elif action == 'block':
         reason = data.get('reason', 'Manual Admin Block')
         duration_days = 365 * 100
         blocked_until = (datetime.now(timezone.utc) + timedelta(days=duration_days)).isoformat()
         
-        # Insert
         cursor.execute('''
             INSERT INTO blocked_ips (ip_address, reason, blocked_until, country, user_agent, created_at)
             VALUES (?, ?, ?, ?, ?, datetime('now'))
         ''', (ip, reason, blocked_until, 'Manual', 'Manual Admin Block'))
-        
-        # Set Cache
         cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * duration_days)
     
     conn.commit()
     conn.close()
-    
     return jsonify({"success": True})
 
 @app.route('/api/admin/comments')
@@ -2428,10 +2170,7 @@ def admin_comments():
         post = posts_map.get(comment['slug'])
         if post:
             comment['post_title'] = post['title']
-            if post.get('image'):
-                comment['post_image'] = post['image']
-            else:
-                comment['post_image'] = None
+            comment['post_image'] = post.get('image')
         else:
             comment['post_title'] = comment['slug']
             comment['post_image'] = None
@@ -2477,17 +2216,13 @@ def analytics_overview():
         LIMIT 5
     ''', (thirty_days_ago,))
     top_posts = [{"slug": row[0], "views": row[1]} for row in cursor.fetchall()]
-    
     conn.close()
     
     all_posts = get_all_posts()
     posts_map = {post['slug']: post for post in all_posts}
     for p in top_posts:
         post = posts_map.get(p['slug'])
-        if post:
-            p['title'] = post['title']
-        else:
-            p['title'] = p['slug']
+        p['title'] = post['title'] if post else p['slug']
             
     return jsonify({
         "total_views": total_views,
@@ -2508,7 +2243,6 @@ def analytics_chart():
     cursor = conn.cursor()
     
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
-    
     cursor.execute('''
         SELECT substr(viewed_at, 1, 10) as day, COUNT(*) 
         FROM analytics_pageviews 
@@ -2526,7 +2260,6 @@ def analytics_chart():
         ORDER BY day
     ''', (thirty_days_ago,))
     daily_shares = {row[0]: row[1] for row in cursor.fetchall()}
-    
     conn.close()
     
     final_data = {}
@@ -2561,7 +2294,6 @@ def analytics_posts_list():
         
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
     cursor.execute('''
         SELECT slug, COUNT(*) as count 
         FROM analytics_pageviews 
@@ -2582,13 +2314,11 @@ def analytics_posts_list():
         })
         
     result.sort(key=lambda x: x['date'], reverse=True)
-    
     total_posts = len(result)
     total_pages = (total_posts + per_page - 1) // per_page
     
     start = (page - 1) * per_page
     end = start + per_page
-    
     paginated_result = result[start:end]
     
     return jsonify({
@@ -2605,7 +2335,6 @@ def analytics_post_detail(slug):
         
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
     cursor.execute('SELECT COUNT(*) FROM analytics_pageviews WHERE slug = ?', (slug,))
     total_views = cursor.fetchone()[0]
     
@@ -2636,10 +2365,8 @@ def analytics_post_detail(slug):
         ORDER BY count DESC
     ''', (slug,))
     shares_platform = [{"platform": row[0], "count": row[1]} for row in cursor.fetchall()]
-
     conn.close()
 
-    # Get post metadata
     all_posts = get_all_posts()
     post_meta = next((p for p in all_posts if p['slug'] == slug), {})
     
@@ -2831,7 +2558,6 @@ def sitemap():
 
 @app.route('/feed.rss')
 def rss_feed():
-    """Generate an RSS feed of blog posts"""
     fg = FeedGenerator()
     fg.title('JoshAtticus Blog')
     fg.description('Personal blog')
@@ -2905,8 +2631,6 @@ def method_not_allowed(e):
         error_description="The method is not allowed for the requested URL."
     ), 405
 
-# Initialize DB and start sync thread when imported (e.g. by Gunicorn)
-# We use a lock in run_wasteof_sync to ensure only one worker runs the sync
 if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # don't run twice in Flask debug mode reloader
     try:
         init_db()
@@ -2916,5 +2640,4 @@ if os.environ.get('WERKZEUG_RUN_MAIN') != 'true': # don't run twice in Flask deb
 
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
-    # init_db and start_wasteof_sync_thread are already called above
     app.run(port=5001)
