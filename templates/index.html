@@ -33,9 +33,26 @@
         </div>
         {% if post.tags %}
         <div class="tags">
-          {% for tag in post.tags %}
-          <a href="/tags/{{ tag|lower|replace(' ', '-') }}" class="tag">{{ tag }}</a>
-          {% endfor %}
+          {% if loop.index <= 3 %}
+            {# First 3 posts: show all tags #}
+            {% for tag in post.tags %}
+            <a href="/tags/{{ tag|lower|replace(' ', '-') }}" class="tag">{{ tag }}</a>
+            {% endfor %}
+            {# Add More button for first 3 posts on mobile #}
+            {% if post.tags|length > 3 %}
+            <a href="/posts/{{ post.slug }}#tags" class="tag tag-more tag-more-desktop-hidden">More</a>
+            {% endif %}
+          {% else %}
+            {# Posts 4+: show first 3 tags + More button #}
+            {% for tag in post.tags %}
+              {% if loop.index <= 2 %}
+              <a href="/tags/{{ tag|lower|replace(' ', '-') }}" class="tag">{{ tag }}</a>
+              {% endif %}
+            {% endfor %}
+            {% if post.tags|length > 2 %}
+            <a href="/posts/{{ post.slug }}#tags" class="tag tag-more">More</a>
+            {% endif %}
+          {% endif %}
         </div>
         {% endif %}
       </div>

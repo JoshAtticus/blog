@@ -482,6 +482,27 @@ footer {
   margin: 0.5rem 0 0 0;
 }
 
+.tag-more {
+  background-color: #444 !important;
+  color: #bbb !important;
+  cursor: pointer;
+}
+
+.tag-more:hover {
+  background-color: #555 !important;
+  color: #ddd !important;
+}
+
+.tag-more-desktop-hidden {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .tag-more-desktop-hidden {
+    display: inline-block;
+  }
+}
+
 .card-content {
   padding: 1.2rem;
   display: flex;
@@ -1498,6 +1519,15 @@ body.comment-menu-open {
 
   .post-grid article .card-summary {
     display: -webkit-box;
+  }
+
+  /* Mobile: limit tags to 3 for all posts */
+  .post-grid article .tag:nth-child(n+4):not(.tag-more) {
+    display: none;
+  }
+
+  .post-grid article .tag-more-desktop-hidden {
+    display: inline-block;
   }
 
   .card-image {
