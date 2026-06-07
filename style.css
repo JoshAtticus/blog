@@ -476,6 +476,10 @@ footer {
   color: white;
 }
 
+.post-grid article:nth-child(n+4) .card-title-overlay h2 {
+  font-size: 1.1rem;
+}
+
 .card-title-overlay .date {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.9rem;
