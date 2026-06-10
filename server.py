@@ -1,7 +1,17 @@
 import os
+import shutil
+import sys
 from datetime import datetime
 from flask import Flask, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+NO_CACHE = '--no-cache' in sys.argv
+if NO_CACHE:
+    cache_dir = 'flask_cache'
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+    os.environ['BLOG_DISABLE_CACHE'] = 'true'
+    sys.argv = [arg for arg in sys.argv if arg != '--no-cache']
 
 # Core helpers and extensions
 from db_helpers import init_db, get_current_user

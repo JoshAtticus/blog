@@ -21,10 +21,14 @@ is_local = (
     or os.environ.get('FLASK_DEBUG') == '1' 
     or os.environ.get('LOCAL_DEV') == 'true'
 )
+disable_cache = os.environ.get('BLOG_DISABLE_CACHE') == 'true'
 
-if is_local:
+if is_local or disable_cache:
     cache = NullCache()
-    print("[Extensions] Local development detected: Caching is disabled (NullCache).")
+    if is_local:
+        print("[Extensions] Local development detected: Caching is disabled (NullCache).")
+    else:
+        print("[Extensions] --no-cache detected: Caching is disabled (NullCache).")
 else:
     cache = FileSystemCache('flask_cache', threshold=500, default_timeout=CACHE_TIMEOUT)
 
