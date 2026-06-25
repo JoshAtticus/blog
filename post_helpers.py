@@ -212,7 +212,7 @@ def process_wasteof_comment(cursor, post_slug, comment_data, parent_external_id)
 
 def fetch_wasteof_replies(cursor, post_slug, comment_id):
     page = 1
-    headers = {'User-Agent': 'JoshAtticusBlog/1.0 +https://blog.joshattic.us/bot'}
+    headers = {'User-Agent': 'JoshAtticusBlog/1.1 +https://blog.joshattic.us/bot'}
     while True:
         try:
             resp = requests.get(f"https://api.wasteof.money/comments/{comment_id}/replies?page={page}", headers=headers, timeout=10)
