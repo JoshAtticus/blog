@@ -13,7 +13,7 @@ admin_bp = Blueprint('admin', __name__)
 def check_admin():
     user = get_current_user()
     if not user or not user.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 403
+        return jsonify({"error": "Nice try"}), 403
 
 @admin_bp.route('/admin')
 def admin_panel():
