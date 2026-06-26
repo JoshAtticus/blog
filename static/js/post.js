@@ -142,7 +142,7 @@ async function loadComments() {
 function displayComments(comments) {
   const container = document.getElementById('comments-list');
   if (!container) return;
-  
+
   container.textContent = '';
 
   if (comments.length === 0) {
@@ -186,12 +186,12 @@ function replyTo(commentId, authorName) {
 
 const cancelReplyBtn = document.getElementById('cancel-reply');
 if (cancelReplyBtn) {
-    cancelReplyBtn.addEventListener('click', () => {
-      replyParentId = null;
-      document.getElementById('reply-indicator').style.display = 'none';
-      document.getElementById('comment-text').placeholder = 'Leave a comment...';
-      setSubmitButtonState(false);
-    });
+  cancelReplyBtn.addEventListener('click', () => {
+    replyParentId = null;
+    document.getElementById('reply-indicator').style.display = 'none';
+    document.getElementById('comment-text').placeholder = 'Leave a comment...';
+    setSubmitButtonState(false);
+  });
 }
 
 function startEdit(comment, bodyEl) {
@@ -304,39 +304,40 @@ function renderComment(comment, byParent, depth = 0) {
 
   if (comment.source === 'wasteof') {
     const badge = document.createElement('a');
-    badge.textContent = 'From wasteof.money';
     badge.href = window.wasteofLink || 'https://wasteof.money';
     badge.target = '_blank';
     badge.className = 'wasteof-badge';
-    badge.setAttribute('data-tooltip', 'This comment has been bridged from a third party platform not controlled by JoshAtticus. Replies posted on this blog cannot be seen by users on the third party platform.');
-    
-    // Handle click for modal
+    badge.setAttribute('aria-label', 'External comment info');
+    badge.innerHTML = `
+      <svg class="wasteof-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+      <div class="wasteof-tooltip">
+        <div class="wasteof-tooltip-header">
+          <svg class="wasteof-tooltip-icon" viewBox="336 312 188.943 94.471" xmlns="http://www.w3.org/2000/svg">
+            <path fill="currentColor" fill-rule="evenodd" d="M 336 312 L 524.943 312 L 524.943 406.471 L 336 406.471 Z M 347.808 335.618 L 360.715 382.889 L 374.612 382.889 L 382.764 353.152 L 383.344 353.152 L 391.496 382.889 L 405.421 382.889 L 418.299 335.618 L 405.025 335.618 L 397.793 367.188 L 397.397 367.188 L 389.613 335.618 L 376.551 335.618 L 368.895 367.372 L 368.47 367.372 L 361.111 335.618 Z" />
+          </svg>
+          <div class="wasteof-tooltip-titles">
+            <span class="wasteof-tooltip-subtitle">External Comment</span>
+            <span class="wasteof-tooltip-title">From wasteof.money</span>
+          </div>
+        </div>
+        <hr class="wasteof-tooltip-divider">
+        <p class="wasteof-tooltip-body">This comment has been bridged from a third party platform and may contain content not controlled, endorsed or condoned by JoshAtticus. Replies posted on this blog cannot be seen by users on the third party platform.</p>
+      </div>
+    `;
+
+    // Handle click on mobile to trigger the actions menu
     badge.addEventListener('click', (e) => {
       const isMobile = window.matchMedia('(hover: none)').matches;
-      
       if (isMobile) {
         e.preventDefault();
-        if (window.uiModal) {
-            window.uiModal.show({
-                title: 'External Link',
-                body: 'This comment has been bridged from a third party platform, wasteof.money.',
-                buttons: [
-                    {
-                        text: 'View on wasteof.money',
-                        primary: true,
-                        link: badge.href
-                    },
-                    {
-                        text: 'Close',
-                        primary: false
-                    }
-                ]
-            });
-        } else {
-            // Fallback if modal script failed to load
-            if (confirm('This comment has been bridged from a third party platform, wasteof.money. Continue to site?')) {
-                window.open(badge.href, '_blank');
-            }
+        e.stopPropagation();
+        const trigger = commentDiv.querySelector('.comment-menu-trigger');
+        if (trigger) {
+          trigger.click();
         }
       }
     });
@@ -376,7 +377,9 @@ function renderComment(comment, byParent, depth = 0) {
   const actions = document.createElement('div');
   actions.className = 'comment-actions';
 
-  if (currentUser) {
+  const showMenu = currentUser || (comment.source === 'wasteof');
+
+  if (showMenu) {
     const menuTrigger = document.createElement('button');
     menuTrigger.className = 'comment-menu-trigger';
     menuTrigger.type = 'button';
@@ -388,36 +391,67 @@ function renderComment(comment, byParent, depth = 0) {
     const menu = document.createElement('div');
     menu.className = 'comment-menu';
 
-    const replyItem = document.createElement('button');
-    replyItem.className = 'comment-menu-item';
-    replyItem.type = 'button';
-    replyItem.textContent = 'Reply';
-    replyItem.onclick = () => {
-      replyTo(comment.id, comment.author_name);
-      closeAllCommentMenus();
-    };
-    menu.appendChild(replyItem);
+    // If it's wasteof, prepend the mobile header info
+    if (comment.source === 'wasteof') {
+      const menuHeader = document.createElement('div');
+      menuHeader.className = 'comment-menu-header';
+      menuHeader.innerHTML = `
+        <svg class="comment-menu-header-icon" viewBox="336 312 188.943 94.471" xmlns="http://www.w3.org/2000/svg">
+          <path fill="currentColor" fill-rule="evenodd" d="M 336 312 L 524.943 312 L 524.943 406.471 L 336 406.471 Z M 347.808 335.618 L 360.715 382.889 L 374.612 382.889 L 382.764 353.152 L 383.344 353.152 L 391.496 382.889 L 405.421 382.889 L 418.299 335.618 L 405.025 335.618 L 397.793 367.188 L 397.397 367.188 L 389.613 335.618 L 376.551 335.618 L 368.895 367.372 L 368.47 367.372 L 361.111 335.618 Z" />
+        </svg>
+        <div class="comment-menu-header-text">
+          <span class="comment-menu-subtitle">External Comment</span>
+          <span class="comment-menu-title">From wasteof.money</span>
+        </div>
+      `;
+      menu.appendChild(menuHeader);
+    }
 
-    if ((String(currentUser.id) === String(comment.user_id) || currentUser.is_admin) && !comment.is_deleted) {
-      const editItem = document.createElement('button');
-      editItem.className = 'comment-menu-item';
-      editItem.type = 'button';
-      editItem.textContent = 'Edit';
-      editItem.onclick = () => {
-        startEdit(comment, body);
+    if (currentUser) {
+      const replyItem = document.createElement('button');
+      replyItem.className = 'comment-menu-item';
+      replyItem.type = 'button';
+      replyItem.textContent = 'Reply';
+      replyItem.onclick = () => {
+        replyTo(comment.id, comment.author_name);
         closeAllCommentMenus();
       };
-      menu.appendChild(editItem);
+      menu.appendChild(replyItem);
 
-      const deleteItem = document.createElement('button');
-      deleteItem.className = 'comment-menu-item delete';
-      deleteItem.type = 'button';
-      deleteItem.textContent = 'Delete';
-      deleteItem.onclick = () => {
-        deleteComment(comment.id);
+      if ((String(currentUser.id) === String(comment.user_id) || currentUser.is_admin) && !comment.is_deleted) {
+        const editItem = document.createElement('button');
+        editItem.className = 'comment-menu-item';
+        editItem.type = 'button';
+        editItem.textContent = 'Edit';
+        editItem.onclick = () => {
+          startEdit(comment, body);
+          closeAllCommentMenus();
+        };
+        menu.appendChild(editItem);
+
+        const deleteItem = document.createElement('button');
+        deleteItem.className = 'comment-menu-item delete';
+        deleteItem.type = 'button';
+        deleteItem.textContent = 'Delete';
+        deleteItem.onclick = () => {
+          deleteComment(comment.id);
+          closeAllCommentMenus();
+        };
+        menu.appendChild(deleteItem);
+      }
+    }
+
+    // Add external link item for wasteof comments
+    if (comment.source === 'wasteof') {
+      const extItem = document.createElement('a');
+      extItem.className = 'comment-menu-item external-link';
+      extItem.href = window.wasteofLink || 'https://wasteof.money';
+      extItem.target = '_blank';
+      extItem.textContent = 'View on wasteof.money';
+      extItem.onclick = () => {
         closeAllCommentMenus();
       };
-      menu.appendChild(deleteItem);
+      menu.appendChild(extItem);
     }
 
     menuTrigger.addEventListener('click', (e) => {
@@ -442,7 +476,7 @@ function renderComment(comment, byParent, depth = 0) {
 
   contentDiv.appendChild(header);
   contentDiv.appendChild(body);
-  if (currentUser) {
+  if (showMenu) {
     contentDiv.appendChild(actions);
   }
 
@@ -478,81 +512,81 @@ function renderComment(comment, byParent, depth = 0) {
 
 const submitCommentBtn = document.getElementById('submit-comment');
 if (submitCommentBtn) {
-    submitCommentBtn.addEventListener('click', async () => {
-      const commentText = document.getElementById('comment-text').value.trim();
-      const submitBtn = document.getElementById('submit-comment');
-      const charCount = document.getElementById('char-count');
+  submitCommentBtn.addEventListener('click', async () => {
+    const commentText = document.getElementById('comment-text').value.trim();
+    const submitBtn = document.getElementById('submit-comment');
+    const charCount = document.getElementById('char-count');
 
-      if (submitBtn.classList.contains('is-loading')) {
-        return;
-      }
+    if (submitBtn.classList.contains('is-loading')) {
+      return;
+    }
 
-      if (!commentText) {
-        await showTransientSubmitFeedback('error', 1000);
-        return;
-      }
+    if (!commentText) {
+      await showTransientSubmitFeedback('error', 1000);
+      return;
+    }
 
-      if (commentText.length > 1500) {
-        await showTransientSubmitFeedback('error', 1000);
-        return;
-      }
+    if (commentText.length > 1500) {
+      await showTransientSubmitFeedback('error', 1000);
+      return;
+    }
 
-      setSubmitButtonVisualState('loading');
+    setSubmitButtonVisualState('loading');
 
-      try {
-        const response = await fetch(`/api/comments/${postSlug}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            comment_text: commentText,
-            parent_id: replyParentId
-          })
-        });
+    try {
+      const response = await fetch(`/api/comments/${postSlug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment_text: commentText,
+          parent_id: replyParentId
+        })
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (response.ok) {
-          document.getElementById('comment-text').value = '';
-          charCount.textContent = '0 / 1500';
+      if (response.ok) {
+        document.getElementById('comment-text').value = '';
+        charCount.textContent = '0 / 1500';
 
-          const newComment = data.comment;
-          replyParentId = null;
-          document.getElementById('reply-indicator').style.display = 'none';
-          document.getElementById('comment-text').placeholder = 'Leave a comment...';
-          setSubmitButtonState(false);
+        const newComment = data.comment;
+        replyParentId = null;
+        document.getElementById('reply-indicator').style.display = 'none';
+        document.getElementById('comment-text').placeholder = 'Leave a comment...';
+        setSubmitButtonState(false);
 
-          await showTransientSubmitFeedback('success', 1000);
+        await showTransientSubmitFeedback('success', 1000);
 
-          if (newComment) {
-            const container = document.getElementById('comments-list');
-            if (container) {
-              if (newComment.parent_id) {
-                loadComments();
-              } else {
-                const commentEl = renderComment(newComment, {});
-                container.insertBefore(commentEl, container.firstChild);
-              }
+        if (newComment) {
+          const container = document.getElementById('comments-list');
+          if (container) {
+            if (newComment.parent_id) {
+              loadComments();
+            } else {
+              const commentEl = renderComment(newComment, {});
+              container.insertBefore(commentEl, container.firstChild);
             }
-          } else {
-            loadComments();
           }
         } else {
-          console.warn(data.error || 'Failed to post comment.');
-          await showTransientSubmitFeedback('error', 1000);
+          loadComments();
         }
-      } catch (error) {
-        console.error('Error posting comment:', error);
+      } else {
+        console.warn(data.error || 'Failed to post comment.');
         await showTransientSubmitFeedback('error', 1000);
       }
-    });
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      await showTransientSubmitFeedback('error', 1000);
+    }
+  });
 }
 
 const commentTextInput = document.getElementById('comment-text');
 if (commentTextInput) {
-    commentTextInput.addEventListener('input', (e) => {
-      const count = e.target.value.length;
-      document.getElementById('char-count').textContent = `${count} / 1500`;
-    });
+  commentTextInput.addEventListener('input', (e) => {
+    const count = e.target.value.length;
+    document.getElementById('char-count').textContent = `${count} / 1500`;
+  });
 }
 
 function initImageEnhancements() {
@@ -630,7 +664,7 @@ function initImageEnhancements() {
 
   const lightbox = document.getElementById('lightbox');
   if (!lightbox) return;
-  
+
   const lbImg = lightbox.querySelector('.lightbox-image');
   const lbCaption = lightbox.querySelector('.lightbox-caption');
   const btnClose = lightbox.querySelector('.lightbox-close');
@@ -693,7 +727,7 @@ function initImageEnhancements() {
         }
       };
       highResImg.src = originalSrc;
-      
+
     }, 150);
 
     btnPrev.disabled = index <= 0;
@@ -741,46 +775,46 @@ function initComparisons() {
     const wrapper = container.querySelector('.comparison-inner') || container;
     const slider = container.querySelector('.comparison-slider');
     const imageOver = container.querySelector('.comparison-image-over');
-    
+
     if (!slider || !imageOver) return;
-    
+
     let active = false;
-    
+
     slider.addEventListener('mousedown', slideReady);
     window.addEventListener('mouseup', slideFinish);
     slider.addEventListener('touchstart', slideReady);
     window.addEventListener('touchend', slideFinish);
-    
+
     function slideReady(e) {
       e.preventDefault();
       active = true;
       window.addEventListener('mousemove', slideMove);
       window.addEventListener('touchmove', slideMove);
     }
-    
+
     function slideFinish() {
       active = false;
       window.removeEventListener('mousemove', slideMove);
       window.removeEventListener('touchmove', slideMove);
     }
-    
+
     function slideMove(e) {
       if (!active) return;
-      
+
       let pos = getCursorPos(e);
-      
+
       if (pos < 0) pos = 0;
       if (pos > wrapper.offsetWidth) pos = wrapper.offsetWidth;
-      
+
       slide(pos);
     }
-    
+
     function getCursorPos(e) {
       const rect = wrapper.getBoundingClientRect();
       const x = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) - rect.left - window.pageXOffset;
       return x;
     }
-    
+
     function slide(x) {
       imageOver.style.clipPath = `inset(0 ${wrapper.offsetWidth - x}px 0 0)`;
       slider.style.left = x + 'px';
@@ -791,80 +825,80 @@ function initComparisons() {
   containers.forEach(container => {
     const videos = Array.from(container.querySelectorAll('video'));
     if (videos.length > 0) {
-        const playBtn = container.querySelector('.comp-play-btn');
-        const progressBar = container.querySelector('.comp-progress-bar');
-        const progressContainer = container.querySelector('.comp-progress-container');
-        
-        let masterVideo = videos[0];
-        
-        const setMaster = () => {
-             // Find shortest duration
-             masterVideo = videos.reduce((prev, curr) => prev.duration < curr.duration ? prev : curr);
-        };
-        
-        // Wait for metadata
-        let loaded = 0;
-        videos.forEach(v => {
-            if (v.readyState >= 1) {
-                loaded++;
-                if (loaded === videos.length) setMaster();
-            } else {
-                v.addEventListener('loadedmetadata', () => {
-                    loaded++;
-                    if (loaded === videos.length) setMaster();
-                });
-            }
-        });
-        
-        // Sync loop
-        const syncLoop = () => {
-            if (!masterVideo.duration) return;
-            
-            // Update progress
-            const percent = (masterVideo.currentTime / masterVideo.duration) * 100;
-            if (progressBar) progressBar.style.width = `${percent}%`;
-            
-            // Check for end
-            if (masterVideo.ended || masterVideo.currentTime >= masterVideo.duration) {
-                videos.forEach(v => {
-                    v.currentTime = 0;
-                    v.play().catch(() => {});
-                });
-            }
-            
-            if (!videos[0].paused) {
-                requestAnimationFrame(syncLoop);
-            }
-        };
+      const playBtn = container.querySelector('.comp-play-btn');
+      const progressBar = container.querySelector('.comp-progress-bar');
+      const progressContainer = container.querySelector('.comp-progress-container');
 
-        if (playBtn) {
-            playBtn.addEventListener('click', () => {
-                const isPaused = videos[0].paused;
-                if (isPaused) {
-                    videos.forEach(v => v.play());
-                    playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-                    syncLoop();
-                } else {
-                    videos.forEach(v => v.pause());
-                    playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-                }
-            });
+      let masterVideo = videos[0];
+
+      const setMaster = () => {
+        // Find shortest duration
+        masterVideo = videos.reduce((prev, curr) => prev.duration < curr.duration ? prev : curr);
+      };
+
+      // Wait for metadata
+      let loaded = 0;
+      videos.forEach(v => {
+        if (v.readyState >= 1) {
+          loaded++;
+          if (loaded === videos.length) setMaster();
+        } else {
+          v.addEventListener('loadedmetadata', () => {
+            loaded++;
+            if (loaded === videos.length) setMaster();
+          });
         }
-        
-        // Seek
-        if (progressContainer) {
-            progressContainer.addEventListener('click', (e) => {
-                const rect = progressContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                if (masterVideo.duration) {
-                    const targetTime = pos * masterVideo.duration;
-                    videos.forEach(v => {
-                        v.currentTime = targetTime;
-                    });
-                    if (progressBar) progressBar.style.width = `${pos * 100}%`;
-                }
-            });
+      });
+
+      // Sync loop
+      const syncLoop = () => {
+        if (!masterVideo.duration) return;
+
+        // Update progress
+        const percent = (masterVideo.currentTime / masterVideo.duration) * 100;
+        if (progressBar) progressBar.style.width = `${percent}%`;
+
+        // Check for end
+        if (masterVideo.ended || masterVideo.currentTime >= masterVideo.duration) {
+          videos.forEach(v => {
+            v.currentTime = 0;
+            v.play().catch(() => { });
+          });
         }
+
+        if (!videos[0].paused) {
+          requestAnimationFrame(syncLoop);
+        }
+      };
+
+      if (playBtn) {
+        playBtn.addEventListener('click', () => {
+          const isPaused = videos[0].paused;
+          if (isPaused) {
+            videos.forEach(v => v.play());
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+            syncLoop();
+          } else {
+            videos.forEach(v => v.pause());
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+          }
+        });
+      }
+
+      // Seek
+      if (progressContainer) {
+        progressContainer.addEventListener('click', (e) => {
+          const rect = progressContainer.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          if (masterVideo.duration) {
+            const targetTime = pos * masterVideo.duration;
+            videos.forEach(v => {
+              v.currentTime = targetTime;
+            });
+            if (progressBar) progressBar.style.width = `${pos * 100}%`;
+          }
+        });
+      }
     }
   });
 }
@@ -874,10 +908,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', () => closeAllCommentMenus());
   setSubmitButtonVisualState('idle');
   setSubmitButtonState(false);
+  loadComments();
+  initImageEnhancements();
+  initComparisons();
+  document.addEventListener('auth-status-changed', () => {
     loadComments();
-    initImageEnhancements();
-    initComparisons();
-    document.addEventListener('auth-status-changed', () => {
-        loadComments();
-    });
+  });
 });

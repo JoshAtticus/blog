@@ -1296,7 +1296,7 @@ footer {
   position: absolute;
   top: calc(100% + 0.4rem);
   right: 0;
-  min-width: 130px;
+  min-width: 180px;
   background: #191919;
   border: 1px solid #363636;
   border-radius: 8px;
@@ -1718,78 +1718,297 @@ body.comment-menu-open {
     max-width: 46%;
   }
 }
-/* Wasteof.money badge */
+/* Wasteof.money badge and symbol */
 .wasteof-badge {
-  font-size: 0.75rem;
-  color: #ff9800;
-  text-decoration: none;
-  border: 1px solid #ff9800;
-  border-radius: 4px;
-  padding: 1px 4px;
+  display: inline-flex;
+  align-items: center;
   position: relative;
   cursor: pointer;
-  display: inline-block;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.wasteof-badge:hover {
-  background-color: rgba(255, 152, 0, 0.1);
+  vertical-align: middle;
+  margin-left: -0.35rem; /* Reduce padding between this and the date */
   text-decoration: none;
 }
 
-/* Tooltip */
-.wasteof-badge::before {
-  content: attr(data-tooltip);
+.wasteof-badge-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  color: #888888; /* Grey external symbol */
+  transition: color 0.2s ease;
+}
+
+.wasteof-badge:hover .wasteof-badge-icon {
+  color: #ffffff; /* White when hovered over */
+}
+
+/* Rich hover tooltip */
+.wasteof-tooltip {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 8px);
   left: 50%;
-  transform: translateX(-50%);
-  padding: 0.5rem;
-  background: #333;
-  color: #fff;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  width: 250px;
-  text-align: center;
+  transform: translateX(-50%) translateY(4px);
+  padding: 12px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  width: 280px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s;
   pointer-events: none;
-  z-index: 100;
-  margin-bottom: 5px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  line-height: 1.4;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   white-space: normal;
+  line-height: 1.4;
+  text-align: left;
 }
 
-.wasteof-badge::after {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: #333;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s;
-  pointer-events: none;
-  z-index: 100;
-  margin-bottom: -5px; /* Adjust to touch the tooltip */
-}
-
-.wasteof-badge:hover::before,
-.wasteof-badge:hover::after {
+.wasteof-badge:hover .wasteof-tooltip {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
 }
 
-/* Hide tooltip on touch devices to prevent it sticking */
+/* Tooltip Arrow */
+.wasteof-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e1e1e;
+}
+.wasteof-tooltip::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: #333;
+  z-index: -1;
+}
+
+.wasteof-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wasteof-tooltip-icon {
+  width: 48px;
+  height: 24px;
+  flex-shrink: 0;
+  color: #ffffff; /* White logo in tooltip */
+}
+
+.wasteof-tooltip-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.wasteof-tooltip-subtitle {
+  font-size: 0.65rem;
+  color: #999;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wasteof-tooltip-title {
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.wasteof-tooltip-divider {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 8px 0;
+}
+
+.wasteof-tooltip-body {
+  font-size: 0.75rem;
+  color: #bbbbbb;
+  margin: 0;
+}
+
+/* External comment link item in actions menu */
+.comment-menu-item.external-link {
+  display: block;
+  box-sizing: border-box;
+  text-decoration: none;
+  color: #4b9fff;
+}
+
+.comment-menu-item.external-link:hover {
+  text-decoration: none;
+  background: rgba(75, 159, 255, 0.1);
+}
+
+/* Light Theme overrides (detect light theme body class or prefers-color-scheme) */
+@media (prefers-color-scheme: light) {
+  .wasteof-badge-icon {
+    color: #777777;
+  }
+  .wasteof-badge:hover .wasteof-badge-icon {
+    color: #000000;
+  }
+  .wasteof-tooltip-icon {
+    color: #000000;
+  }
+  .wasteof-tooltip {
+    background: #ffffff;
+    border-color: #e0e0e0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+  .wasteof-tooltip-title {
+    color: #000000;
+  }
+  .wasteof-tooltip-body {
+    color: #444444;
+  }
+  .wasteof-tooltip-divider {
+    border-top-color: #e0e0e0;
+  }
+  .wasteof-tooltip::after {
+    border-top-color: #ffffff;
+  }
+  .wasteof-tooltip::before {
+    border-top-color: #e0e0e0;
+  }
+}
+
+body.light .wasteof-badge-icon,
+body.light-mode .wasteof-badge-icon,
+body.light-theme .wasteof-badge-icon {
+  color: #777777;
+}
+body.light .wasteof-badge:hover .wasteof-badge-icon,
+body.light-mode .wasteof-badge:hover .wasteof-badge-icon,
+body.light-theme .wasteof-badge:hover .wasteof-badge-icon {
+  color: #000000;
+}
+body.light .wasteof-tooltip-icon,
+body.light-mode .wasteof-tooltip-icon,
+body.light-theme .wasteof-tooltip-icon {
+  color: #000000;
+}
+body.light .wasteof-tooltip,
+body.light-mode .wasteof-tooltip,
+body.light-theme .wasteof-tooltip {
+  background: #ffffff;
+  border-color: #e0e0e0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+body.light .wasteof-tooltip-title,
+body.light-mode .wasteof-tooltip-title,
+body.light-theme .wasteof-tooltip-title {
+  color: #000000;
+}
+body.light .wasteof-tooltip-body,
+body.light-mode .wasteof-tooltip-body,
+body.light-theme .wasteof-tooltip-body {
+  color: #444444;
+}
+body.light .wasteof-tooltip-divider,
+body.light-mode .wasteof-tooltip-divider,
+body.light-theme .wasteof-tooltip-divider {
+  border-top-color: #e0e0e0;
+}
+body.light .wasteof-tooltip::after,
+body.light-mode .wasteof-tooltip::after,
+body.light-theme .wasteof-tooltip::after {
+  border-top-color: #ffffff;
+}
+body.light .wasteof-tooltip::before,
+body.light-mode .wasteof-tooltip::before,
+body.light-theme .wasteof-tooltip::before {
+  border-top-color: #e0e0e0;
+}
+
+/* Hide hover card on mobile devices */
 @media (hover: none) {
-  .wasteof-badge::before,
-  .wasteof-badge::after {
-    display: none;
+  .wasteof-tooltip {
+    display: none !important;
+  }
+}
+
+/* Mobile actions menu external header styling (Desktop has no header inside the popup) */
+.comment-menu-header {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .comment-menu-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem 0.85rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #333;
+  }
+  
+  .comment-menu-header-icon {
+    width: 48px;
+    height: 24px;
+    flex-shrink: 0;
+    color: #ffffff;
+  }
+
+  .comment-menu-header-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .comment-menu-subtitle {
+    font-size: 0.65rem;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .comment-menu-title {
+    font-size: 0.95rem;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  @media (prefers-color-scheme: light) {
+    .comment-menu-header {
+      border-bottom-color: #e0e0e0;
+    }
+    .comment-menu-header-icon {
+      color: #000000;
+    }
+    .comment-menu-title {
+      color: #000000;
+    }
+  }
+
+  body.light .comment-menu-header,
+  body.light-mode .comment-menu-header,
+  body.light-theme .comment-menu-header {
+    border-bottom-color: #e0e0e0;
+  }
+  body.light .comment-menu-header-icon,
+  body.light-mode .comment-menu-header-icon,
+  body.light-theme .comment-menu-header-icon {
+    color: #000000;
+  }
+  body.light .comment-menu-title,
+  body.light-mode .comment-menu-title,
+  body.light-theme .comment-menu-title {
+    color: #000000;
+  }
+
+  .comment-menu-item.external-link {
+    margin-top: -0.3rem; /* Reduce mobile padding between delete and external link */
   }
 }
 
