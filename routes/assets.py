@@ -40,7 +40,10 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
             fmt = 'jpeg'
         
         final_quality = min(quality, 75) if img.width * img.height > 2000000 else quality
-        img.save(output, format=fmt, optimize=True, quality=final_quality)
+        save_kwargs = {'format': fmt, 'optimize': True, 'quality': final_quality}
+        if fmt == 'jpeg':
+            save_kwargs['subsampling'] = 0
+        img.save(output, **save_kwargs)
         compressed_data = output.getvalue()
         cache.set(cache_key, compressed_data, CACHE_TIMEOUT)
         return compressed_data
@@ -52,7 +55,7 @@ def compress_image(image_path, max_width=MAX_IMAGE_WIDTH, quality=COMPRESSION_QU
         return file_data
 
 def generate_image_sizes(image_path):
-    sizes = {'placeholder': (50, 20), 'thumbnail': (800, 70), 'full': (1200, 85)}
+    sizes = {'placeholder': (50, 20), 'thumbnail': (800, 70), 'full': (2000, 90)}
     results = {}
     for size_name, (width, quality) in sizes.items():
         cache_key = f'img_{image_path}_{size_name}_{width}_{quality}'
@@ -79,7 +82,10 @@ def generate_image_sizes(image_path):
             if fmt == 'jpg':
                 fmt = 'jpeg'
             
-            img.save(output, format=fmt, optimize=True, quality=quality)
+            save_kwargs = {'format': fmt, 'optimize': True, 'quality': quality}
+            if fmt == 'jpeg':
+                save_kwargs['subsampling'] = 0
+            img.save(output, **save_kwargs)
             compressed_data = output.getvalue()
             results[size_name] = compressed_data
             cache.set(cache_key, compressed_data, CACHE_TIMEOUT)
@@ -104,6 +110,9 @@ def respond_image(filepath, filename):
     if os.path.exists(filepath) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
         if size in ['placeholder', 'thumbnail', 'full']:
             image_data = generate_image_sizes(filepath).get(size)
+        elif size == 'original':
+            with open(filepath, 'rb') as f:
+                image_data = f.read()
         else:
             image_data = compress_image(filepath)
         
