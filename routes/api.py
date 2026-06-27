@@ -10,32 +10,6 @@ from post_helpers import get_all_posts
 
 api_bp = Blueprint('api', __name__)
 
-@api_bp.route('/metrics/v8-push', methods=['POST'])
-def proxy_plausible_event():
-    headers = {
-        'User-Agent': request.headers.get('User-Agent', ''),
-        'X-Forwarded-For': get_client_ip(),
-        'Content-Type': 'application/json'
-    }
-    
-    # Optional headers that Plausible might use or we might forward:
-    if 'Accept-Language' in request.headers:
-        headers['Accept-Language'] = request.headers['Accept-Language']
-        
-    try:
-        # Plausible event payload validation or forward as-is
-        payload = request.get_data()
-        resp = requests.post(
-            'https://plausible.joshattic.us/api/event',
-            data=payload,
-            headers=headers,
-            timeout=5
-        )
-        return Response(resp.text, status=resp.status_code, headers=[('Content-Type', resp.headers.get('Content-Type', 'application/json'))])
-    except Exception as e:
-        print(f"Error proxying Plausible event: {e}")
-        return jsonify({"error": "Failed to proxy event"}), 502
-
 @api_bp.route('/api/search')
 def api_search():
     query = request.args.get('q', '').lower()

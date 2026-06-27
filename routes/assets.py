@@ -125,25 +125,7 @@ def respond_image(filepath, filename):
         return current_app.response_class(image_data, mimetype=mimetype)
     return send_from_directory(os.path.dirname(filepath), filename)
 
-@assets_bp.route('/assets/v8-core.js')
-def serve_plausible_script():
-    cache_key = 'plausible_script_v8_core'
-    script_data = cache.get(cache_key)
-    if script_data is not None:
-        return Response(script_data, mimetype='application/javascript')
-    
-    try:
-        url = 'https://plausible.joshattic.us/js/script.file-downloads.outbound-links.js'
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            script_data = resp.text
-            # Cache the script for CACHE_TIMEOUT (e.g. 1 hour)
-            cache.set(cache_key, script_data, CACHE_TIMEOUT)
-            return Response(script_data, mimetype='application/javascript')
-    except Exception as e:
-        print(f"Error fetching Plausible script: {e}")
-        
-    return Response("// Plausible script proxy error", mimetype='application/javascript', status=502)
+
 
 @assets_bp.route('/assets/<path:filename>')
 def serve_asset(filename):
