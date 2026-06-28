@@ -334,14 +334,13 @@ _WP_PATHS = [
     '/wp-json/wp/v2/plugins',
     '/wp-login.php',
     '/wp-admin',
-    '/wp-admin/',
     '/wp-admin/admin-ajax.php',
     '/xmlrpc.php',
 ]
 
 for _wp_path in _WP_PATHS:
     _ep = 'wp_trap_' + _wp_path.replace('/', '_').replace('-', '_').replace('.', '_').strip('_')
-    @honeypot_bp.route(_wp_path, endpoint=_ep, methods=['GET', 'POST'])
+    @honeypot_bp.route(_wp_path, endpoint=_ep, methods=['GET', 'POST'], strict_slashes=False)
     def wp_trap(_path=_wp_path):
         _trap(f'WordPress/WP-JSON scan – path: {request.path} (Honeypot)')
         return jsonify({}), 200
@@ -357,7 +356,6 @@ _NEXTJS_PATHS = [
     '/_next/server',
     '/_next/data',
     '/_next/static',
-    '/app',
     '/api/route',
     '/api/trpc',
     '/trpc',
