@@ -8,6 +8,48 @@ from extensions import IPHUB_KEY, DB_PATH, cache
 
 honeypot_bp = Blueprint('honeypot', __name__)
 
+# ---------------------------------------------------------------------------
+# Shared trap helper
+# ---------------------------------------------------------------------------
+
+def _trap(reason_label):
+    """Log the request, permanently block the IP, and return a convincing fake
+    response so the scanner thinks it found something real."""
+    ip = request.remote_addr
+    user_agent = request.user_agent.string
+    country = request.headers.get('CF-IPCountry', 'Unknown')
+    headers_dict = dict(request.headers)
+    path = request.path
+
+    blocked_until = datetime.now(timezone.utc) + timedelta(days=365 * 10)
+    extra = json.dumps({
+        'headers': headers_dict,
+        'method': request.method,
+        'path': path,
+        'reason': reason_label,
+    })
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM blocked_ips WHERE ip_address = ?', (ip,))
+        if not cursor.fetchone():
+            cursor.execute(
+                '''
+                INSERT INTO blocked_ips
+                    (ip_address, user_agent, country, reason, blocked_until, extra_info)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ''',
+                (ip, user_agent, country, reason_label, blocked_until.isoformat(), extra)
+            )
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f'[honeypot] DB error ({reason_label}): {e}')
+
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
+    cache.set(f'blocked_{ip}', True, timeout=3600)
+
 def get_ip_type(ip):
     if not IPHUB_KEY:
         return -1
@@ -241,3 +283,89 @@ def monitor_suspicious_activity(response):
         if errors >= 10:
             cache.set(f'blocked_{ip}', True, timeout=3600)
     return response
+
+
+# ---------------------------------------------------------------------------
+# Trap 1: .git/config scanners (34.131.81.44 pattern)
+# Serve fake git config that looks real to keep the scanner busy, then block.
+# ---------------------------------------------------------------------------
+
+_GIT_CONFIG_PREFIXES = [
+    '', '/app', '/src', '/backend', '/frontend', '/api', '/v1', '/v2', '/v3',
+    '/web', '/www', '/html', '/htdocs', '/public', '/static', '/assets',
+    '/dist', '/build', '/admin', '/portal', '/dashboard', '/blog', '/site',
+    '/shop', '/wp-content', '/wordpress', '/laravel', '/symfony', '/project',
+    '/code',
+]
+
+for _prefix in _GIT_CONFIG_PREFIXES:
+    @honeypot_bp.route(f'{_prefix}/.git/config', endpoint=f'git_config_{_prefix.lstrip("/") or "root"}')
+    def git_config_trap(_p=_prefix):
+        _trap(f'Git config scan – path: {request.path} (Honeypot)')
+        fake = (
+            '[core]\n'
+            '\trepositoryformatversion = 0\n'
+            '\tfilemode = true\n'
+            '\tbare = false\n'
+            '\tlogallrefupdates = true\n'
+            '[remote "origin"]\n'
+            '\turl = https://github.com/example/repo.git\n'
+            '\tfetch = +refs/heads/*:refs/remotes/origin/*\n'
+            '[branch "main"]\n'
+            '\tremote = origin\n'
+            '\tmerge = refs/heads/main\n'
+        )
+        resp = make_response(fake, 200)
+        resp.headers['Content-Type'] = 'text/plain'
+        return resp
+
+
+# ---------------------------------------------------------------------------
+# Trap 2: WordPress / GravityForms REST API scanners (34.148.176.223 pattern)
+# Return convincing-looking empty JSON so the scanner thinks it got something.
+# ---------------------------------------------------------------------------
+
+_WP_PATHS = [
+    '/wp-json/gravitysmtp/v1/tests/mock-data',
+    '/wp-json/gravitysmtp/v1/settings',
+    '/wp-json/gravitysmtp/v1/config',
+    '/wp-json/wp/v2/settings',
+    '/wp-json/wp/v2/users',
+    '/wp-json/wp/v2/plugins',
+    '/wp-login.php',
+    '/wp-admin',
+    '/wp-admin/',
+    '/wp-admin/admin-ajax.php',
+    '/xmlrpc.php',
+]
+
+for _wp_path in _WP_PATHS:
+    _ep = 'wp_trap_' + _wp_path.replace('/', '_').replace('-', '_').replace('.', '_').strip('_')
+    @honeypot_bp.route(_wp_path, endpoint=_ep, methods=['GET', 'POST'])
+    def wp_trap(_path=_wp_path):
+        _trap(f'WordPress/WP-JSON scan – path: {request.path} (Honeypot)')
+        return jsonify({}), 200
+
+
+# ---------------------------------------------------------------------------
+# Trap 3: Next.js structure probes (45.198.224.244 pattern)
+# The scanner POSTs to framework-specific paths guessing the tech stack.
+# ---------------------------------------------------------------------------
+
+_NEXTJS_PATHS = [
+    '/_next',
+    '/_next/server',
+    '/_next/data',
+    '/_next/static',
+    '/app',
+    '/api/route',
+    '/api/trpc',
+    '/trpc',
+]
+
+for _nx_path in _NEXTJS_PATHS:
+    _ep = 'nextjs_trap_' + _nx_path.replace('/', '_').strip('_')
+    @honeypot_bp.route(_nx_path, endpoint=_ep, methods=['POST'])
+    def nextjs_trap(_path=_nx_path):
+        _trap(f'Next.js/framework structure probe – path: {request.path} (Honeypot)')
+        return jsonify({'error': 'Not Found'}), 404
