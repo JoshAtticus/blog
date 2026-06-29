@@ -16,6 +16,17 @@ def _trap(reason_label):
     """Log the request, permanently block the IP, and return a convincing fake
     response so the scanner thinks it found something real."""
     ip = request.remote_addr
+
+    # Set cache keys FIRST before any DB work. This prevents the TOCTOU race
+    # where simultaneous requests from the same IP all pass the SELECT check
+    # before any INSERT has committed, resulting in duplicate rows.
+    already_blocked = cache.get(f'honeypot_blocked_{ip}')
+    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
+    cache.set(f'blocked_{ip}', True, timeout=3600)
+
+    if already_blocked:
+        return  # Already logged on a prior concurrent request — skip the DB write
+
     user_agent = request.user_agent.string
     country = request.headers.get('CF-IPCountry', 'Unknown')
     headers_dict = dict(request.headers)
@@ -46,9 +57,6 @@ def _trap(reason_label):
         conn.close()
     except Exception as e:
         print(f'[honeypot] DB error ({reason_label}): {e}')
-
-    cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
-    cache.set(f'blocked_{ip}', True, timeout=3600)
 
 def get_ip_type(ip):
     if not IPHUB_KEY:
