@@ -120,6 +120,10 @@ def crazy():
 def contact():
     return render_template('contact.html')
 
+@views_bp.route('/robots.txt')
+def robots_txt():
+    return make_response(render_template('robots.txt'), {'Content-Type': 'text/plain'})
+
 @views_bp.route('/sitemap.xml')
 def sitemap():
     posts = get_all_posts()

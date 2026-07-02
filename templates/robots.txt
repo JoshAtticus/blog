@@ -1,0 +1,7 @@
+User-Agent: *
+Disallow: /login
+Disallow: /login/joshatticus
+Disallow: /login/github
+Disallow: /login/google
+Disallow: /admin
+Disallow: /wp-admin-login
