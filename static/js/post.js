@@ -308,7 +308,7 @@ function renderComment(comment, byParent, depth = 0) {
   header.appendChild(author);
   header.appendChild(date);
 
-  if (comment.source === 'wasteof') {
+  if (comment.source === 'wasteof' && !comment.is_deleted) {
     const badge = document.createElement('a');
     badge.href = window.wasteofLink || 'https://wasteof.money';
     badge.target = '_blank';
@@ -383,7 +383,7 @@ function renderComment(comment, byParent, depth = 0) {
   const actions = document.createElement('div');
   actions.className = 'comment-actions';
 
-  const showMenu = currentUser || (comment.source === 'wasteof');
+  const showMenu = currentUser || (comment.source === 'wasteof' && !comment.is_deleted);
 
   if (showMenu) {
     const menuTrigger = document.createElement('button');
@@ -448,7 +448,7 @@ function renderComment(comment, byParent, depth = 0) {
     }
 
     // Add external link item for wasteof comments
-    if (comment.source === 'wasteof') {
+    if (comment.source === 'wasteof' && !comment.is_deleted) {
       const extItem = document.createElement('a');
       extItem.className = 'comment-menu-item external-link';
       extItem.href = window.wasteofLink || 'https://wasteof.money';
