@@ -2,6 +2,12 @@ const postSlug = window.location.pathname.split('/').pop();
 let replyParentId = null;
 let activeMenuComment = null;
 let commentMenuBackdrop = null;
+
+function decodeHtml(html) {
+  const txt = document.createElement('textarea');
+  txt.innerHTML = html;
+  return txt.value;
+}
 const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const submitButtonIcons = {
@@ -195,7 +201,7 @@ if (cancelReplyBtn) {
 }
 
 function startEdit(comment, bodyEl) {
-  const originalText = comment.comment_text;
+  const originalText = decodeHtml(decodeHtml(comment.comment_text));
   bodyEl.innerHTML = '';
 
   const textarea = document.createElement('textarea');
@@ -356,7 +362,7 @@ function renderComment(comment, byParent, depth = 0) {
   const body = document.createElement('div');
   body.className = 'comment-body';
 
-  const cleanText = comment.comment_text.replace(/\n/g, ' ').trim();
+  const cleanText = decodeHtml(decodeHtml(comment.comment_text)).replace(/\n/g, ' ').trim();
   const shouldTruncate = cleanText.length > 300;
 
   if (shouldTruncate) {
