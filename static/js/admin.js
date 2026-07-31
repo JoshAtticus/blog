@@ -2,6 +2,12 @@ let charts = {};
 let currentPostSlug = null;
 let showPlatformShares = false;
 let pollingInterval = null;
+
+function decodeHtml(html) {
+  const txt = document.createElement('textarea');
+  txt.innerHTML = html;
+  return txt.value;
+}
 let state = {
     users: { page: 1 },
     community: { page: 1 },
@@ -317,43 +323,141 @@ async function loadUsers(page) {
 // --- Helper Functions ---
 function renderComments(comments, containerId) {
     const container = document.getElementById(containerId);
-    if(!comments || comments.length === 0) {
+    if (!comments || comments.length === 0) {
         container.innerHTML = '<div style="padding:1rem;color:#aaa">No comments found.</div>';
         return;
     }
-    container.innerHTML = comments.map(comment => `
-        <div class="comment-card">
-            <div class="comment-main">
-                <img src="${comment.picture || '/assets/default-avatar.png'}" class="comment-avatar-img" onerror="this.src='https://placehold.co/40'">
-                <div class="comment-content-area">
-                    <div class="comment-meta">
-                        <span class="comment-author-name">${comment.author_name}</span>
-                        <span>•</span>
-                        <span>${new Date(comment.created_at).toLocaleDateString()}</span>
-                        ${comment.is_deleted ? '<span class="status-deleted">Deleted</span>' : ''}
-                    </div>
-                    <div class="comment-text">${comment.comment_text}</div>
-                    <div class="comment-actions-row">
-                        ${!comment.is_deleted ? `<button class="comment-action-link" onclick="deleteComment(${comment.id})">DELETE</button>` : ''}
-                        ${!comment.is_deleted ? `<button class="comment-action-link" onclick="showReplyBox(${comment.id}, '${comment.slug}')">REPLY</button>` : ''}
-                    </div>
-                    <div class="reply-box" id="reply-box-${comment.id}" style="display:none;margin-top:0.5rem;">
-                        <textarea id="reply-text-${comment.id}" rows="2" style="width:100%;resize:vertical;"></textarea>
-                        <button onclick="submitReply(${comment.id}, '${comment.slug}')" style="margin-top:0.5rem;">Send Reply</button>
-                        <button onclick="hideReplyBox(${comment.id})" style="margin-top:0.5rem;">Cancel</button>
-                    </div>
-                </div>
-            </div>
-            <div class="comment-post-info">
-                <a href="/posts/${comment.slug}" target="_blank">
-                    <img src="${comment.post_image || 'https://placehold.co/600x400'}" class="comment-post-thumb" onerror="this.src='https://placehold.co/120x68'">
-                </a>
-                <a href="/posts/${comment.slug}" target="_blank" class="comment-post-title">
-                    ${comment.post_title || comment.slug}
-                </a>
-            </div>
-        </div>
-    `).join('');
+    container.innerHTML = '';
+    comments.forEach(comment => {
+        const card = document.createElement('div');
+        card.className = 'comment-card';
+
+        const main = document.createElement('div');
+        main.className = 'comment-main';
+
+        const avatar = document.createElement('img');
+        avatar.className = 'comment-avatar-img';
+        avatar.src = comment.picture || '/assets/default-avatar.png';
+        avatar.alt = comment.author_name || '';
+        avatar.onerror = () => avatar.src = 'https://placehold.co/40';
+
+        const contentArea = document.createElement('div');
+        contentArea.className = 'comment-content-area';
+
+        const meta = document.createElement('div');
+        meta.className = 'comment-meta';
+
+        const authorName = document.createElement('span');
+        authorName.className = 'comment-author-name';
+        authorName.textContent = decodeHtml(decodeHtml(comment.author_name || ''));
+
+        const dot = document.createElement('span');
+        dot.textContent = '•';
+
+        const dateSpan = document.createElement('span');
+        dateSpan.textContent = new Date(comment.created_at).toLocaleDateString();
+
+        meta.appendChild(authorName);
+        meta.appendChild(dot);
+        meta.appendChild(dateSpan);
+        if (comment.is_deleted) {
+            const del = document.createElement('span');
+            del.className = 'status-deleted';
+            del.textContent = 'Deleted';
+            meta.appendChild(del);
+        }
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'comment-text';
+        textDiv.textContent = decodeHtml(decodeHtml(comment.comment_text || ''));
+
+        const actions = document.createElement('div');
+        actions.className = 'comment-actions-row';
+
+        if (!comment.is_deleted) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'comment-action-link';
+            deleteBtn.textContent = 'DELETE';
+            deleteBtn.onclick = () => deleteComment(comment.id);
+            actions.appendChild(deleteBtn);
+
+            const replyBtn = document.createElement('button');
+            replyBtn.className = 'comment-action-link';
+            replyBtn.textContent = 'REPLY';
+            replyBtn.onclick = () => showReplyBox(comment.id, comment.slug || '');
+            actions.appendChild(replyBtn);
+        }
+
+        const replyBox = document.createElement('div');
+        replyBox.className = 'reply-box';
+        replyBox.id = 'reply-box-' + comment.id;
+        replyBox.style.display = 'none';
+        replyBox.style.marginTop = '0.5rem';
+
+        const replyText = document.createElement('textarea');
+        replyText.id = 'reply-text-' + comment.id;
+        replyText.rows = 2;
+        replyText.style.width = '100%';
+        replyText.style.resize = 'vertical';
+
+        const submitBtn = document.createElement('button');
+        submitBtn.textContent = 'Send Reply';
+        submitBtn.style.marginTop = '0.5rem';
+        submitBtn.onclick = () => submitReply(comment.id, comment.slug || '');
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.marginTop = '0.5rem';
+        cancelBtn.onclick = () => hideReplyBox(comment.id);
+
+        replyBox.appendChild(replyText);
+        replyBox.appendChild(submitBtn);
+        replyBox.appendChild(cancelBtn);
+
+        contentArea.appendChild(meta);
+        contentArea.appendChild(textDiv);
+        contentArea.appendChild(actions);
+        contentArea.appendChild(replyBox);
+
+        main.appendChild(avatar);
+        main.appendChild(contentArea);
+
+        const postInfo = document.createElement('div');
+        postInfo.className = 'comment-post-info';
+
+        const postLink = document.createElement('a');
+        postLink.href = '/posts/' + (comment.slug || '');
+        postLink.target = '_blank';
+
+        const thumb = document.createElement('img');
+        thumb.className = 'comment-post-thumb';
+        thumb.src = comment.post_image || 'https://placehold.co/600x400';
+        thumb.alt = '';
+        thumb.onerror = () => thumb.src = 'https://placehold.co/120x68';
+
+        postLink.appendChild(thumb);
+
+        const titleLink = document.createElement('a');
+        titleLink.href = '/posts/' + (comment.slug || '');
+        titleLink.target = '_blank';
+        titleLink.className = 'comment-post-title';
+        titleLink.textContent = decodeHtml(decodeHtml(comment.post_title || comment.slug || ''));
+
+        postInfo.appendChild(postLink);
+        postInfo.appendChild(titleLink);
+
+        card.appendChild(main);
+        card.appendChild(postInfo);
+        container.appendChild(card);
+    });
+}
+
+function showReplyBoxFromBtn(btn) {
+    showReplyBox(btn.dataset.id, btn.dataset.slug);
+}
+
+function submitReplyFromBtn(btn) {
+    submitReply(btn.dataset.id, btn.dataset.slug);
 }
 
 function showReplyBox(commentId, slug) {
