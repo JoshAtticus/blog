@@ -31,7 +31,7 @@ def comments_api(slug):
         for c in comments:
             if c['is_deleted']:
                 if not is_admin:
-                    c['author_name'], c['comment_text'], c['picture'] = '[Deleted by user]', '[Deleted by user]', None
+                    c['author_name'], c['comment_text'], c['picture'], c['author_avatar_url'], c['user_id'] = '[Deleted by user]', '[Deleted by user]', None, None, None
                 else:
                     c['comment_text'] = f"[DELETED] {c['comment_text']}"
         return jsonify({"comments": comments, "page": page, "total_pages": total_pages, "total_comments": total_comments})
