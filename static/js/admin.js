@@ -315,6 +315,16 @@ async function loadUsers(page) {
 }
 
 // --- Helper Functions ---
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 function renderComments(comments, containerId) {
     const container = document.getElementById(containerId);
     if(!comments || comments.length === 0) {
@@ -332,7 +342,7 @@ function renderComments(comments, containerId) {
                         <span>${new Date(comment.created_at).toLocaleDateString()}</span>
                         ${comment.is_deleted ? '<span class="status-deleted">Deleted</span>' : ''}
                     </div>
-                    <div class="comment-text">${comment.comment_text}</div>
+                    <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
                     <div class="comment-actions-row">
                         ${!comment.is_deleted ? `<button class="comment-action-link" onclick="deleteComment(${comment.id})">DELETE</button>` : ''}
                         ${!comment.is_deleted ? `<button class="comment-action-link" onclick="showReplyBox(${comment.id}, '${comment.slug}')">REPLY</button>` : ''}

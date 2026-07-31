@@ -1,6 +1,5 @@
 import sqlite3
 import json
-import html
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify, render_template
 from extensions import DB_PATH, get_client_ip, hash_ip, cache
@@ -367,6 +366,6 @@ def admin_reply_to_comment():
         
     user = get_current_user()
     user_id, author_name = str(user['id']), user['name']
-    comment_text = html.escape(comment_text).replace('\n', ' ').replace('\r', '')
+    comment_text = comment_text.replace('\n', ' ').replace('\r', '')
     comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, hash_ip(get_client_ip()))
     return jsonify({"success": True, "comment_id": comment_id})

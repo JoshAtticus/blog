@@ -1,4 +1,3 @@
-import html
 import requests
 from flask import Blueprint, request, jsonify, Response
 from extensions import get_client_ip, hash_ip
@@ -63,7 +62,7 @@ def comments_api(slug):
         if len(comment_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        comment_text = html.escape(comment_text).replace('\n', ' ').replace('\r', '')
+        comment_text = comment_text.replace('\n', ' ').replace('\r', '')
         comment_id = add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash)
         return jsonify({"success": True, "comment": get_comment_by_id(comment_id)})
 
@@ -84,7 +83,7 @@ def comment_action_api(comment_id):
         if len(new_text) > 1500:
             return jsonify({"error": "Comment exceeds 1500 characters"}), 400
             
-        new_text = html.escape(new_text).replace('\n', ' ').replace('\r', '')
+        new_text = new_text.replace('\n', ' ').replace('\r', '')
         success, error = edit_comment(comment_id, user_id, new_text)
         return jsonify({"success": True}) if success else (jsonify({"error": error}), 403)
         
