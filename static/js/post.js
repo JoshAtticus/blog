@@ -162,6 +162,23 @@ function closeAllCommentMenus(exceptMenu = null) {
   }
 }
 
+function checkActiveMenuScroll() {
+  const openMenu = document.querySelector('.comment-menu.open');
+  if (!openMenu) return;
+
+  const targetEl = activeMenuComment || openMenu.closest('.comment-main') || openMenu.closest('.comment');
+  if (!targetEl) return;
+
+  const rect = targetEl.getBoundingClientRect();
+  const vh = window.innerHeight;
+
+  if (rect.bottom < -60 || rect.top > vh + 60) {
+    closeAllCommentMenus();
+  }
+}
+
+window.addEventListener('scroll', checkActiveMenuScroll, { passive: true });
+
 async function loadComments() {
   try {
     const response = await fetch(`/api/comments/${postSlug}`);
