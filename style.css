@@ -1212,7 +1212,7 @@ footer {
 }
 
 .comment-replies {
-  margin-left: 56px;
+  margin-left: 20px;
   margin-top: 0.75rem;
   padding-left: 0.75rem;
   border-left: 2px solid #333;
@@ -1622,7 +1622,7 @@ body.comment-menu-open {
 
   /* Comments */
   .comment-replies {
-    margin-left: 44px;
+    margin-left: 16px;
   }
 
   .comment-form-footer {
