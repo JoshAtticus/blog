@@ -67,6 +67,27 @@ function setSubmitButtonState(isReply) {
 
 function formatCommentTimestamp(timestamp) {
   const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  if (diffSecs < 60) return 'just now';
+  if (diffMins < 60) return diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
+  if (diffHours < 24) return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+  if (diffDays < 7) return diffDays === 1 ? 'yesterday' : `${diffDays} days ago`;
+  if (diffWeeks < 5) return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+  if (diffMonths < 12) return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+  return diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
+}
+
+function formatCommentTimestampAbsolute(timestamp) {
+  const date = new Date(timestamp);
   return date.toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -324,9 +345,11 @@ function renderComment(comment, byParent, depth = 0) {
   author.className = 'comment-author';
   author.textContent = comment.author_name;
 
-  const date = document.createElement('span');
+  const date = document.createElement('time');
   date.className = 'comment-date';
+  date.setAttribute('datetime', comment.created_at);
   date.textContent = formatCommentTimestamp(comment.created_at);
+  date.title = formatCommentTimestampAbsolute(comment.created_at);
 
   header.appendChild(author);
   header.appendChild(date);
@@ -378,7 +401,7 @@ function renderComment(comment, byParent, depth = 0) {
     const editedSpan = document.createElement('span');
     editedSpan.className = 'comment-edited';
     editedSpan.textContent = '(Edited)';
-    editedSpan.title = formatCommentTimestamp(comment.edited_at);
+    editedSpan.title = formatCommentTimestampAbsolute(comment.edited_at);
     header.appendChild(editedSpan);
   }
 
