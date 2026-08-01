@@ -386,14 +386,14 @@ function renderComments(comments, containerId) {
             replyBtn.textContent = 'REPLY';
             replyBtn.onclick = () => showReplyBox(comment.id, comment.slug || '');
             actions.appendChild(replyBtn);
+        } else {
+            const purgeBtn = document.createElement('button');
+            purgeBtn.className = 'comment-action-link';
+            purgeBtn.style.color = '#ff5252';
+            purgeBtn.textContent = 'PURGE';
+            purgeBtn.onclick = () => purgeCommentAdmin(comment.id);
+            actions.appendChild(purgeBtn);
         }
-
-        const purgeBtn = document.createElement('button');
-        purgeBtn.className = 'comment-action-link';
-        purgeBtn.style.color = '#ff5252';
-        purgeBtn.textContent = 'PURGE';
-        purgeBtn.onclick = () => purgeCommentAdmin(comment.id);
-        actions.appendChild(purgeBtn);
 
         const replyBox = document.createElement('div');
         replyBox.className = 'reply-box';

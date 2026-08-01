@@ -1195,13 +1195,27 @@ footer {
 /* Comment Items */
 .comment {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
 }
 
+.comment-main {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.comment-main.menu-active,
 .comment.menu-active {
   position: relative;
   z-index: 1301;
+}
+
+.comment-replies {
+  margin-left: 1.5rem;
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #333;
 }
 
 .comment-avatar {
@@ -1306,6 +1320,11 @@ footer {
   z-index: 20;
 }
 
+.comment-menu.open-up {
+  top: auto;
+  bottom: calc(100% + 0.4rem);
+}
+
 .comment-menu-backdrop {
   position: fixed;
   inset: 0;
@@ -1324,7 +1343,12 @@ footer {
 }
 
 body.comment-menu-open {
-  overflow: hidden;
+  padding-bottom: 50vh !important;
+  transition: padding-bottom 0.2s ease;
+}
+
+#comments-list {
+  padding-bottom: 4rem;
 }
 
 .comment-menu.open {
@@ -1623,9 +1647,24 @@ body.comment-menu-open {
     height: 40px;
   }
 
+  .comment-main.menu-active .comment-content,
   .comment.menu-active .comment-content {
     border-color: #4a4a4a;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .comment-main {
+    gap: 0.5rem;
+  }
+
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .comment-content {
+    padding: 0.75rem;
+    padding-right: 2.5rem;
   }
 
   .comment-menu {
@@ -1662,8 +1701,14 @@ body.comment-menu-open {
   }
 
   .comment-replies {
-    margin-left: 1rem;
+    margin-left: 0.5rem;
     padding-left: 0.5rem;
+    border-left-width: 2px;
+  }
+
+  .comment-replies .comment-replies {
+    margin-left: 0.35rem;
+    padding-left: 0.35rem;
   }
 
   /* Lightbox */

@@ -30,14 +30,20 @@ function ensureCommentMenuBackdrop() {
   document.body.appendChild(commentMenuBackdrop);
 }
 
-function activateCommentMenuContext(commentEl) {
+function activateCommentMenuContext(commentEl, targetEl) {
   if (!isMobileMenuViewport()) return;
   ensureCommentMenuBackdrop();
   if (activeMenuComment) activeMenuComment.classList.remove('menu-active');
-  activeMenuComment = commentEl;
+  activeMenuComment = targetEl || commentEl;
   activeMenuComment.classList.add('menu-active');
   document.body.classList.add('comment-menu-open');
   commentMenuBackdrop.classList.add('open');
+
+  setTimeout(() => {
+    if (activeMenuComment) {
+      activeMenuComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 50);
 }
 
 function clearCommentMenuContext() {
@@ -465,7 +471,7 @@ function renderComment(comment, byParent, depth = 0) {
         menu.appendChild(deleteItem);
       }
 
-      if (currentUser.is_admin) {
+      if (currentUser.is_admin && comment.is_deleted) {
         const purgeItem = document.createElement('button');
         purgeItem.className = 'comment-menu-item purge';
         purgeItem.type = 'button';
@@ -496,9 +502,18 @@ function renderComment(comment, byParent, depth = 0) {
       const isOpen = menu.classList.contains('open');
       closeAllCommentMenus();
       if (!isOpen) {
+        if (!isMobileMenuViewport()) {
+          const rect = menuTrigger.getBoundingClientRect();
+          const estimatedMenuHeight = 180;
+          if (window.innerHeight - rect.bottom < estimatedMenuHeight && rect.top > estimatedMenuHeight) {
+            menu.classList.add('open-up');
+          } else {
+            menu.classList.remove('open-up');
+          }
+        }
         menu.classList.add('open');
         menuTrigger.setAttribute('aria-expanded', 'true');
-        activateCommentMenuContext(commentDiv);
+        activateCommentMenuContext(commentDiv, mainDiv);
       } else {
         menuTrigger.setAttribute('aria-expanded', 'false');
         clearCommentMenuContext();
@@ -517,8 +532,11 @@ function renderComment(comment, byParent, depth = 0) {
     contentDiv.appendChild(actions);
   }
 
-  commentDiv.appendChild(avatar);
-  commentDiv.appendChild(contentDiv);
+  const mainDiv = document.createElement('div');
+  mainDiv.className = 'comment-main';
+  mainDiv.appendChild(avatar);
+  mainDiv.appendChild(contentDiv);
+  commentDiv.appendChild(mainDiv);
 
   if (byParent[comment.id]) {
     const repliesDiv = document.createElement('div');
@@ -541,7 +559,7 @@ function renderComment(comment, byParent, depth = 0) {
       };
       repliesDiv.appendChild(showRepliesBtn);
     }
-    contentDiv.appendChild(repliesDiv);
+    commentDiv.appendChild(repliesDiv);
   }
 
   return commentDiv;
