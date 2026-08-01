@@ -174,8 +174,7 @@ def check_suspicious_block():
                 return stream_heavy_block(ip, db_id)
         return render_template('blocked.html'), 403
 
-    if cache.get(f'blocked_{ip}'):
-        return render_template('suspicious.html'), 403
+
 
 @honeypot_bp.route('/wp-admin-login')
 def honeypot():
@@ -278,19 +277,7 @@ def honeypot_finalize():
     cache.set(f'honeypot_blocked_{ip}', True, timeout=60 * 60 * 24 * 365 * 10)
     return jsonify({"status": "blocked"})
 
-@honeypot_bp.after_app_request
-def monitor_suspicious_activity(response):
-    if response.status_code >= 400 and response.status_code not in [401, 403]:
-        ip = request.remote_addr
-        error_key = f'errors_{ip}'
-        errors = cache.get(error_key) or 0
-        errors += 1
-        cache.set(error_key, errors, timeout=60)
-        
-        # kill spammers with hammers (looking at you fucking seo bots)
-        if errors >= 10:
-            cache.set(f'blocked_{ip}', True, timeout=3600)
-    return response
+
 
 
 # ---------------------------------------------------------------------------

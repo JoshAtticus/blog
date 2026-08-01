@@ -1157,7 +1157,10 @@ footer {
 }
 
 @keyframes submitDotFade {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     opacity: 0.35;
     transform: scale(0.9);
   }
@@ -1212,9 +1215,9 @@ footer {
 }
 
 .comment-replies {
-  margin-left: 20px;
+  margin-left: 56px;
   margin-top: 0.75rem;
-  padding-left: 1.25rem;
+  padding-left: 1rem;
   border-left: 2px solid #333;
 }
 
@@ -1452,7 +1455,6 @@ body.comment-menu-open {
 /* Nested Replies */
 .comment-replies {
   margin-top: 1.5rem;
-  padding-left: 0;
 }
 
 .comment-replies .comment {
@@ -1622,8 +1624,8 @@ body.comment-menu-open {
 
   /* Comments */
   .comment-replies {
-    margin-left: 16px;
-    padding-left: 1rem;
+    margin-left: 44px;
+    padding-left: 0.75rem;
   }
 
   .comment-form-footer {
@@ -1752,6 +1754,7 @@ body.comment-menu-open {
     max-width: 46%;
   }
 }
+
 /* Wasteof.money badge and symbol */
 .wasteof-badge {
   display: inline-flex;
@@ -1759,7 +1762,8 @@ body.comment-menu-open {
   position: relative;
   cursor: pointer;
   vertical-align: middle;
-  margin-left: -0.35rem; /* Reduce padding between this and the date */
+  margin-left: -0.35rem;
+  /* Reduce padding between this and the date */
   text-decoration: none;
 }
 
@@ -1767,12 +1771,14 @@ body.comment-menu-open {
   width: 14px;
   height: 14px;
   display: block;
-  color: #888888; /* Grey external symbol */
+  color: #888888;
+  /* Grey external symbol */
   transition: color 0.2s ease;
 }
 
 .wasteof-badge:hover .wasteof-badge-icon {
-  color: #ffffff; /* White when hovered over */
+  color: #ffffff;
+  /* White when hovered over */
 }
 
 /* Rich hover tooltip */
@@ -1814,6 +1820,7 @@ body.comment-menu-open {
   border: 6px solid transparent;
   border-top-color: #1e1e1e;
 }
+
 .wasteof-tooltip::before {
   content: '';
   position: absolute;
@@ -1836,7 +1843,8 @@ body.comment-menu-open {
   width: 48px;
   height: 24px;
   flex-shrink: 0;
-  color: #ffffff; /* White logo in tooltip */
+  color: #ffffff;
+  /* White logo in tooltip */
 }
 
 .wasteof-tooltip-titles {
@@ -1888,29 +1896,37 @@ body.comment-menu-open {
   .wasteof-badge-icon {
     color: #777777;
   }
+
   .wasteof-badge:hover .wasteof-badge-icon {
     color: #000000;
   }
+
   .wasteof-tooltip-icon {
     color: #000000;
   }
+
   .wasteof-tooltip {
     background: #ffffff;
     border-color: #e0e0e0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   }
+
   .wasteof-tooltip-title {
     color: #000000;
   }
+
   .wasteof-tooltip-body {
     color: #444444;
   }
+
   .wasteof-tooltip-divider {
     border-top-color: #e0e0e0;
   }
+
   .wasteof-tooltip::after {
     border-top-color: #ffffff;
   }
+
   .wasteof-tooltip::before {
     border-top-color: #e0e0e0;
   }
@@ -1921,16 +1937,19 @@ body.light-mode .wasteof-badge-icon,
 body.light-theme .wasteof-badge-icon {
   color: #777777;
 }
+
 body.light .wasteof-badge:hover .wasteof-badge-icon,
 body.light-mode .wasteof-badge:hover .wasteof-badge-icon,
 body.light-theme .wasteof-badge:hover .wasteof-badge-icon {
   color: #000000;
 }
+
 body.light .wasteof-tooltip-icon,
 body.light-mode .wasteof-tooltip-icon,
 body.light-theme .wasteof-tooltip-icon {
   color: #000000;
 }
+
 body.light .wasteof-tooltip,
 body.light-mode .wasteof-tooltip,
 body.light-theme .wasteof-tooltip {
@@ -1938,26 +1957,31 @@ body.light-theme .wasteof-tooltip {
   border-color: #e0e0e0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
+
 body.light .wasteof-tooltip-title,
 body.light-mode .wasteof-tooltip-title,
 body.light-theme .wasteof-tooltip-title {
   color: #000000;
 }
+
 body.light .wasteof-tooltip-body,
 body.light-mode .wasteof-tooltip-body,
 body.light-theme .wasteof-tooltip-body {
   color: #444444;
 }
+
 body.light .wasteof-tooltip-divider,
 body.light-mode .wasteof-tooltip-divider,
 body.light-theme .wasteof-tooltip-divider {
   border-top-color: #e0e0e0;
 }
+
 body.light .wasteof-tooltip::after,
 body.light-mode .wasteof-tooltip::after,
 body.light-theme .wasteof-tooltip::after {
   border-top-color: #ffffff;
 }
+
 body.light .wasteof-tooltip::before,
 body.light-mode .wasteof-tooltip::before,
 body.light-theme .wasteof-tooltip::before {
@@ -1985,7 +2009,7 @@ body.light-theme .wasteof-tooltip::before {
     margin-bottom: 0.5rem;
     border-bottom: 1px solid #333;
   }
-  
+
   .comment-menu-header-icon {
     width: 48px;
     height: 24px;
@@ -2017,9 +2041,11 @@ body.light-theme .wasteof-tooltip::before {
     .comment-menu-header {
       border-bottom-color: #e0e0e0;
     }
+
     .comment-menu-header-icon {
       color: #000000;
     }
+
     .comment-menu-title {
       color: #000000;
     }
@@ -2030,11 +2056,13 @@ body.light-theme .wasteof-tooltip::before {
   body.light-theme .comment-menu-header {
     border-bottom-color: #e0e0e0;
   }
+
   body.light .comment-menu-header-icon,
   body.light-mode .comment-menu-header-icon,
   body.light-theme .comment-menu-header-icon {
     color: #000000;
   }
+
   body.light .comment-menu-title,
   body.light-mode .comment-menu-title,
   body.light-theme .comment-menu-title {
@@ -2042,7 +2070,8 @@ body.light-theme .wasteof-tooltip::before {
   }
 
   .comment-menu-item.external-link {
-    margin-top: -0.3rem; /* Reduce mobile padding between delete and external link */
+    margin-top: -0.3rem;
+    /* Reduce mobile padding between delete and external link */
   }
 }
 
@@ -2075,7 +2104,7 @@ body.light-theme .wasteof-tooltip::before {
   max-width: 90%;
   width: 400px;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   transform: translateY(20px);
   transition: transform 0.3s;
   border: 1px solid #333;
@@ -2136,50 +2165,50 @@ body.light-theme .wasteof-tooltip::before {
 
 /* Privacy Notice (Cookie Banner) */
 .privacy-notice {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #222;
-    color: #fff;
-    padding: 1rem;
-    text-align: center;
-    z-index: 10000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1rem;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
-    font-size: 0.9rem;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #222;
+  color: #fff;
+  padding: 1rem;
+  text-align: center;
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 0.9rem;
 }
 
 .privacy-notice a {
-    color: #fff;
-    text-decoration: underline;
+  color: #fff;
+  text-decoration: underline;
 }
 
 .privacy-notice button {
-    background: #fff;
-    color: #222;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background 0.2s;
+  background: #fff;
+  color: #222;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  transition: background 0.2s;
 }
 
 .privacy-notice button:hover {
-    background: #ddd;
+  background: #ddd;
 }
 
 @media (max-width: 600px) {
-    .privacy-notice {
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 1rem 0.5rem;
-    }
+  .privacy-notice {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0.5rem;
+  }
 }
 
 /* Comparison Controls */
@@ -2230,19 +2259,19 @@ body.light-theme .wasteof-tooltip::before {
 }
 
 @media (max-width: 600px) {
-    .comp-progress-container {
-        width: 120px;
-    }
+  .comp-progress-container {
+    width: 120px;
+  }
 }
 
 .banned-banner {
-    background-color: #d32f2f;
-    color: white;
-    text-align: center;
-    padding: 1rem;
-    font-weight: 500;
+  background-color: #d32f2f;
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  font-weight: 500;
 }
 
 .joshatticus-wordmark {
-    font-family: 'Unbounded';
+  font-family: 'Unbounded';
 }
