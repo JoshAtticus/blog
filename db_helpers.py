@@ -377,6 +377,40 @@ def delete_comment(comment_id, user_id, is_admin=False):
     conn.close()
     return True, None
 
+def purge_comment(comment_id, is_admin=False):
+    if not is_admin:
+        return False, "Unauthorized"
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id FROM comments WHERE id = ?', (comment_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False, "Comment not found"
+        
+    cursor.execute('''
+        WITH RECURSIVE comment_tree AS (
+            SELECT id FROM comments WHERE id = ?
+            UNION ALL
+            SELECT c.id FROM comments c
+            JOIN comment_tree ct ON c.parent_id = ct.id
+        )
+        SELECT id FROM comment_tree
+    ''', (comment_id,))
+    
+    target_ids = [row[0] for row in cursor.fetchall()]
+    
+    if target_ids:
+        placeholders = ','.join(['?'] * len(target_ids))
+        cursor.execute(f'DELETE FROM comment_history WHERE comment_id IN ({placeholders})', target_ids)
+        cursor.execute(f'DELETE FROM comments WHERE id IN ({placeholders})', target_ids)
+        conn.commit()
+        
+    conn.close()
+    return True, None
+
+
 def add_comment(slug, user_id, author_name, comment_text, parent_id, ip_hash):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

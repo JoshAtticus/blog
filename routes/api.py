@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, Response
 from extensions import get_client_ip, hash_ip
 from db_helpers import (
     get_current_user, get_comments_for_post, check_comment_rate_limit,
-    check_reply_rate_limit, add_comment, get_comment_by_id, edit_comment, delete_comment
+    check_reply_rate_limit, add_comment, get_comment_by_id, edit_comment, delete_comment, purge_comment
 )
 from post_helpers import get_all_posts
 
@@ -89,5 +89,9 @@ def comment_action_api(comment_id):
         return jsonify({"success": True}) if success else (jsonify({"error": error}), 403)
         
     elif request.method == 'DELETE':
-        success, error = delete_comment(comment_id, user_id, user.get('is_admin', False))
+        purge = request.args.get('purge', '').lower() in ('true', '1')
+        if purge:
+            success, error = purge_comment(comment_id, user.get('is_admin', False))
+        else:
+            success, error = delete_comment(comment_id, user_id, user.get('is_admin', False))
         return jsonify({"success": True}) if success else (jsonify({"error": error}), 403)

@@ -388,6 +388,13 @@ function renderComments(comments, containerId) {
             actions.appendChild(replyBtn);
         }
 
+        const purgeBtn = document.createElement('button');
+        purgeBtn.className = 'comment-action-link';
+        purgeBtn.style.color = '#ff5252';
+        purgeBtn.textContent = 'PURGE';
+        purgeBtn.onclick = () => purgeCommentAdmin(comment.id);
+        actions.appendChild(purgeBtn);
+
         const replyBox = document.createElement('div');
         replyBox.className = 'reply-box';
         replyBox.id = 'reply-box-' + comment.id;
@@ -508,8 +515,24 @@ async function deleteComment(id) {
         await fetch(`/api/comments/${id}`, { method: 'DELETE' });
         // Reload current view
         if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+        else if (document.getElementById('view-user-comments').classList.contains('active')) openUserComments(state.userComments.userId, state.userComments.page);
         else loadPostComments(currentPostSlug, state.detailComments.page);
     } catch (err) { alert('Error deleting comment'); }
+}
+
+async function purgeCommentAdmin(id) {
+    if (!confirm('Are you sure you want to PERMANENTLY PURGE this comment and ALL of its replies? This cannot be undone.')) return;
+    try {
+        const res = await fetch(`/api/comments/${id}?purge=1`, { method: 'DELETE' });
+        if (res.ok) {
+            if (document.getElementById('view-community').classList.contains('active')) loadCommunity(state.community.page);
+            else if (document.getElementById('view-user-comments').classList.contains('active')) openUserComments(state.userComments.userId, state.userComments.page);
+            else loadPostComments(currentPostSlug, state.detailComments.page);
+        } else {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || 'Error purging comment');
+        }
+    } catch (err) { alert('Error purging comment'); }
 }
 
 function renderChart(canvasId, labels, data, label) {

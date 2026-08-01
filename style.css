@@ -1347,11 +1347,13 @@ body.comment-menu-open {
   background: #2a2a2a;
 }
 
-.comment-menu-item.delete {
+.comment-menu-item.delete,
+.comment-menu-item.purge {
   color: #ff6d6d;
 }
 
-.comment-menu-item.delete:hover {
+.comment-menu-item.delete:hover,
+.comment-menu-item.purge:hover {
   background: rgba(255, 82, 82, 0.12);
 }
 

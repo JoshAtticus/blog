@@ -281,6 +281,23 @@ async function deleteComment(id) {
   }
 }
 
+async function purgeComment(id) {
+  if (!confirm('Are you sure you want to PERMANENTLY PURGE this comment and ALL of its replies? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`/api/comments/${id}?purge=1`, { method: 'DELETE' });
+    if (res.ok) {
+      loadComments();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'Failed to purge comment');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Failed to purge comment');
+  }
+}
+
+
 function renderComment(comment, byParent, depth = 0) {
   const commentDiv = document.createElement('div');
   commentDiv.className = 'comment';
@@ -414,15 +431,17 @@ function renderComment(comment, byParent, depth = 0) {
     }
 
     if (currentUser) {
-      const replyItem = document.createElement('button');
-      replyItem.className = 'comment-menu-item';
-      replyItem.type = 'button';
-      replyItem.textContent = 'Reply';
-      replyItem.onclick = () => {
-        replyTo(comment.id, comment.author_name);
-        closeAllCommentMenus();
-      };
-      menu.appendChild(replyItem);
+      if (!comment.is_deleted) {
+        const replyItem = document.createElement('button');
+        replyItem.className = 'comment-menu-item';
+        replyItem.type = 'button';
+        replyItem.textContent = 'Reply';
+        replyItem.onclick = () => {
+          replyTo(comment.id, comment.author_name);
+          closeAllCommentMenus();
+        };
+        menu.appendChild(replyItem);
+      }
 
       if ((String(currentUser.id) === String(comment.user_id) || currentUser.is_admin) && !comment.is_deleted) {
         const editItem = document.createElement('button');
@@ -444,6 +463,18 @@ function renderComment(comment, byParent, depth = 0) {
           closeAllCommentMenus();
         };
         menu.appendChild(deleteItem);
+      }
+
+      if (currentUser.is_admin) {
+        const purgeItem = document.createElement('button');
+        purgeItem.className = 'comment-menu-item purge';
+        purgeItem.type = 'button';
+        purgeItem.textContent = 'Purge';
+        purgeItem.onclick = () => {
+          purgeComment(comment.id);
+          closeAllCommentMenus();
+        };
+        menu.appendChild(purgeItem);
       }
     }
 
