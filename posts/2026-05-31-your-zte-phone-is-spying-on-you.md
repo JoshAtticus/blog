@@ -2,6 +2,7 @@
 title: Your ZTE phone is likely spying on you, which ZTE says is "compliant"
 date: 2026-05-31
 tags: General, Hardware, Smartphones, Android, Tech, Security, China, ZTE, Unisoc, Spreadtrum, Spyware, Technical
+summary: Cheap always comes with a trade-off, and when it comes to cheap ZTE phones, that trade-off is privacy.
 wasteof_link: https://wasteof.money/posts/6a1c3f342e140a0380124751
 ---
 
