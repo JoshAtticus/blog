@@ -23,3 +23,6 @@ Thumbs.db
 
 # in progress blog posts
 posts/assets/2026-01-04-my-first-phone-vs-my-current-phone-camera-comparison/*
+
+# crap
+.vscode/settings.json
