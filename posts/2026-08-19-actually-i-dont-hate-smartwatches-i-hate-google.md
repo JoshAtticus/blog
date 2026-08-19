@@ -39,7 +39,7 @@ Google picked a horribly inefficient chip, paired it with a tiny battery, and to
 
 Now I understand that this was a first generation product, and Google's newer hardware is significantly improved, adding better batteries and more efficient chips, but what hasn't changed is the awful software.
 
-Beyond the inefficiency, Wear OS 3 felt horribly incomplete. It just lacked basic features, just like early Android Wear. If you take a look at an AOSP Android Phone Emulator Image and a Pixel phone, the difference is night and day. The AOSP image is incomplete and lacking features and good UI, while Google has actually put effort into making the Pixel UI usable. Do the same for the Pixel Watch, and the differences are far less obviously. Sorry, let me correct that, there are zero differences. There are absolutely zero special Pixel Watch features that make it look better or more complete than the barebones basic AOSP Wear OS image. This statement is true for all versions of Wear OS.
+Beyond the inefficiency, Wear OS 3 felt horribly incomplete. It just lacked basic features, just like early Android Wear. If you take a look at an AOSP Android Phone Emulator Image and a Pixel phone, the difference is night and day. The AOSP image is incomplete and lacking features and good UI, while Google has actually put effort into making the Pixel UI usable. Do the same for the Pixel Watch, and the differences are far less obvious. Sorry, let me correct that, there are zero differences. There are absolutely zero special Pixel Watch features that make it look better or more complete than the barebones basic AOSP Wear OS image. This statement is true for all versions of Wear OS.
 
 Rather than trying to explain the differences, I think it would be better to just show you.
 
