@@ -3,6 +3,7 @@ title: Actually, I don't hate smartwatches, I just hate Google, and I wish I did
 date: 2026-08-19
 tags: General, Hardware, Android, Google, Opinion, Samsung, Smartwatch, Software, Support, Wear OS
 summary: Google's mediocre smartwatch software, abysmal level of effort and care put into optimisation and internal self sabotage between departments makes Pixel Watches look and feel incredibly unfinished and unappealing, while making Apple & Samsung look like the best smartwatch companies on earth.
+wasteof_link: https://wasteof.money/posts/6a858e5b2f994596b28ad4e0
 ---
 
 ![Galaxy Watch9 and Pixel Watch 1](assets/2026-08-19-actually-i-dont-hate-smartwatches-i-hate-google/hero.png)
