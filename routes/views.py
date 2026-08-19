@@ -68,7 +68,21 @@ def bot_page():
 
 @views_bp.route('/tags')
 def tags():
-    return render_template('tags.html', tags=get_tags(), year=datetime.now().year)
+    tags = get_tags()
+    max_count = max((tag['count'] for tag in tags), default=1)
+    min_count = min((tag['count'] for tag in tags), default=1)
+    count_range = max_count - min_count
+
+    tag_cloud = []
+    for tag in tags:
+        weight = (tag['count'] - min_count) / count_range if count_range else 0
+        # grey scale: smallest -> #888 (136), largest -> #ffffff (255)
+        gray = int(136 + weight * 119)
+        gray_hex = f"{gray:02x}"
+        color = f"#{gray_hex}{gray_hex}{gray_hex}"
+        tag_cloud.append({**tag, 'font_size': round(1 + weight * 1.25, 2), 'color': color, 'weight': weight})
+
+    return render_template('tags.html', tags=tag_cloud, year=datetime.now().year)
 
 @views_bp.route('/tags/<tag_slug>')
 def tag(tag_slug):

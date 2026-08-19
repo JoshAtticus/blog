@@ -9,9 +9,11 @@
 
     <h2>All Tags</h2>
 
-    <div class="tag-cloud">
+    <div class="tag-cloud" aria-label="All tags">
       {% for tag in tags %}
-      <a href="/tags/{{ tag.slug }}" class="tag-item">
+      <a href="/tags/{{ tag.slug }}" class="tag-item" style="--tag-size: {{ tag.font_size }}rem; --tag-color: {{ tag.color }};"
+        aria-label="{{ tag.name }} ({{ tag.count }} {% if tag.count == 1 %}post{% else %}posts{% endif %})"
+        title="{{ tag.count }} {% if tag.count == 1 %}post{% else %}posts{% endif %}">
         <span class="tag-name">{{ tag.name }}</span>
         <span class="tag-count">{{ tag.count }}</span>
       </a>

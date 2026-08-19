@@ -127,36 +127,53 @@ footer {
   margin-bottom: 0.5rem;
 }
 
-.tag:hover,
-.tag-item:hover {
+.tag:hover {
   background-color: #3c3c3c;
   text-decoration: none;
 }
 
 .tag-cloud {
-  margin: 2rem 0;
+  max-width: 620px;
+  margin: 1.5rem auto 2rem;
+  padding: 0.5rem 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
   justify-content: center;
+  align-items: baseline;
+  gap: 0.4rem 0.45rem;
+  line-height: 1;
+  text-align: center;
 }
 
 .tag-item {
-  background-color: #2c2c2c;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  font-size: var(--tag-size, 1rem);
+  line-height: 1.1;
+  padding: 0.12rem 0.28rem;
+  margin: 0;
+  border-radius: 5px;
   display: inline-flex;
-  align-items: center;
-  transition: all 0.2s ease;
+  align-items: baseline;
+  gap: 0.3em;
+  vertical-align: middle;
+  white-space: nowrap;
+  transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
-.tag-item:hover {
+.tag-item:hover,
+.tag-item:focus-visible {
+  background-color: #2c2c2c;
   transform: translateY(-2px);
+  text-decoration: none;
 }
 
 .tag-name {
-  color: #e0e0e0;
-  font-weight: 500;
+  color: var(--tag-color, #e0e0e0);
+  font-weight: 600;
+}
+
+.tag-item:hover .tag-name,
+.tag-item:focus-visible .tag-name {
+  color: #4b9fff;
 }
 
 .tag-count {
@@ -166,6 +183,17 @@ footer {
   padding: 0.1rem 0.5rem;
   font-size: 0.8rem;
   margin-left: 0.5rem;
+}
+
+.tag-cloud .tag-count {
+  background: none;
+  color: var(--tag-color, #888);
+  opacity: 0.68;
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.55em;
+  font-weight: 500;
+  margin-left: 0;
 }
 
 .tag-header {
@@ -654,7 +682,7 @@ footer {
 }
 
 .content figure img {
-  margin: 0;
+  margin: 0 auto;
 }
 
 .content figure figcaption {
@@ -792,13 +820,17 @@ footer {
 .comparison-container {
   width: 100%;
   margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   user-select: none;
   -webkit-user-select: none;
 }
-
 .comparison-inner {
   position: relative;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
   overflow: hidden;
   border-radius: 8px;
   line-height: 0;
@@ -815,7 +847,8 @@ footer {
 
 .comparison-image-under {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: auto;
   object-fit: cover;
 }
