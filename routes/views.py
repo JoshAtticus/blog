@@ -30,6 +30,10 @@ def index():
 
 @views_bp.route('/posts/<slug>')
 def post(slug):
+    # Handle legacy .html URLs (e.g. from old og:url) -> 301 to canonical
+    if slug.endswith('.html'):
+        slug = slug[:-5]
+        return redirect(url_for('views.post', slug=slug), code=301)
     post_item = get_post_by_slug(slug)
     if not post_item:
         return redirect(url_for('views.index'))
@@ -54,7 +58,7 @@ def post(slug):
     view_count = get_view_count(slug)
     shares_count = get_shares_count(slug)
     
-    post_url = f"https://blog.joshattic.us/posts/{post_item['filename']}"
+    post_url = f"https://blog.joshattic.us/posts/{post_item['slug']}"
     absolute_image_url = f"https://blog.joshattic.us/{post_item['image']}"
     
     response = make_response(render_template('post.html', post=post_item, year=datetime.now().year, url=post_url, absolute_image_url=absolute_image_url, view_count=view_count, shares_count=shares_count))
