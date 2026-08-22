@@ -30,7 +30,11 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Session configurations
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    # Refuse to start without a real key: the old insecure fallback would let
+    # anyone forge session cookies (including admin sessions) if it leaked.
+    raise RuntimeError('SECRET_KEY environment variable must be set')
 app.config['SESSION_COOKIE_NAME'] = 'blog_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = not is_local  # Automatically False locally to make HTTP debugging painless
@@ -46,6 +50,31 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(assets_bp)
 app.register_blueprint(honeypot_bp)
+
+# Security headers on every response
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    # Sources reflect current usage: Google Fonts, Chart.js via jsdelivr (admin),
+    # Twitter widgets (post embeds), YouTube-nocookie iframes (post embeds),
+    # and remote OAuth avatars. 'unsafe-inline' is required by the inline
+    # scripts in base.html / post.html / honeypot_loading.html.
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://platform.twitter.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src 'self' https: data:; "
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    )
+    return response
 
 @app.context_processor
 def inject_globals():

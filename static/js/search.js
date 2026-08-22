@@ -24,7 +24,10 @@
       updateUrl(query);
 
       if (data.results.length === 0) {
-        searchResults.innerHTML = `<p class="no-results">No results found for "${query}".</p>`;
+        const noResults = document.createElement('p');
+        noResults.className = 'no-results';
+        noResults.textContent = `No results found for "${query}".`;
+        searchResults.replaceChildren(noResults);
         return;
       }
 

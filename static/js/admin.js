@@ -8,6 +8,19 @@ function decodeHtml(html) {
   txt.innerHTML = html;
   return txt.value;
 }
+
+// Escape untrusted strings before inserting into innerHTML templates.
+// User-controlled values (OAuth names, emails, avatar URLs) must never go in raw.
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Only allow remote https avatar URLs; anything else falls back to the local default
+function safeAvatar(url) {
+  return typeof url === 'string' && url.startsWith('https://') ? url : '/assets/default-avatar.png';
+}
 let state = {
     users: { page: 1 },
     community: { page: 1 },
@@ -72,9 +85,9 @@ async function loadDashboard() {
         document.getElementById('dash-visitors-30d').innerText = data.visitors_30d || 0;
         
         document.getElementById('dash-top-posts').innerHTML = (data.top_posts || []).map(p => `
-            <tr onclick="openPost('${p.slug}')">
-                <td>${p.title}</td>
-                <td>${p.views}</td>
+            <tr onclick="openPost('${escHtml(p.slug)}')">
+                <td>${escHtml(p.title)}</td>
+                <td>${escHtml(p.views)}</td>
             </tr>
         `).join('');
         
@@ -162,15 +175,15 @@ async function loadContent(page) {
         state.content.page = data.page;
         
         document.getElementById('content-list').innerHTML = data.posts.map(p => `
-            <tr onclick="openPost('${p.slug}')">
+            <tr onclick="openPost('${escHtml(p.slug)}')">
                 <td>
                     <div style="display:flex;align-items:center;gap:1rem">
-                        <img src="${p.image || 'https://placehold.co/600x400'}" style="width:60px;height:34px;object-fit:cover;border-radius:4px" onerror="this.src='https://placehold.co/60x34'">
-                        ${p.title}
+                        <img src="${escHtml(safeAvatar(p.image.startsWith('https') ? p.image : `https://blog.joshattic.us/${p.image}`))}" style="width:60px;height:34px;object-fit:cover;border-radius:4px" onerror="this.onerror=null;this.src='https://placehold.co/60x34'">
+                        ${escHtml(p.title)}
                     </div>
                 </td>
-                <td>${p.date}</td>
-                <td>${p.views}</td>
+                <td>${escHtml(p.date)}</td>
+                <td>${escHtml(p.views)}</td>
             </tr>
         `).join('');
         
@@ -234,7 +247,7 @@ async function openPost(slug) {
             sharesContainer.style.display = 'block';
             sharesList.innerHTML = data.shares_platform.map(s => `
                 <div style="background:#252525;padding:0.5rem 1rem;border-radius:4px;border:1px solid #333">
-                    <span style="color:#aaa">${s.platform}</span>: <strong style="color:#fff">${s.count}</strong>
+                    <span style="color:#aaa">${escHtml(s.platform)}</span>: <strong style="color:#fff">${escHtml(s.count)}</strong>
                 </div>
             `).join('');
         } else {
@@ -286,30 +299,30 @@ async function loadUsers(page) {
         
         document.getElementById('users-list').innerHTML = data.users.map(user => `
             <tr>
-                <td>${user.id}</td>
+                <td>${escHtml(user.id)}</td>
                 <td>
                     <div style="display:flex;align-items:center;gap:0.5rem">
-                        <img src="${user.picture || '/assets/default-avatar.png'}" style="width:24px;height:24px;border-radius:50%" onerror="this.src='https://placehold.co/24'">
-                        ${user.name}
+                        <img src="${escHtml(safeAvatar(user.picture))}" style="width:24px;height:24px;border-radius:50%" onerror="this.onerror=null;this.src='https://placehold.co/24'">
+                        ${escHtml(user.name)}
                     </div>
                 </td>
-                <td>${user.email || '-'}</td>
-                <td>${user.oauth_provider}</td>
+                <td>${escHtml(user.email || '-')}</td>
+                <td>${escHtml(user.oauth_provider)}</td>
                 <td>
                     <span class="status-badge ${user.email_verified ? 'status-verified' : 'status-unverified'}">
                         ${user.email_verified ? 'Verified' : 'Unverified'}
                     </span>
                 </td>
                 <td>${user.is_admin ? 'Yes' : 'No'}</td>
-                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                <td>${escHtml(new Date(user.created_at).toLocaleDateString())}</td>
                 <td>
                     <div style="display:flex;align-items:center;gap:0.5rem">
                         ${!user.is_admin ? `
-                        <button onclick="${user.is_banned ? 'unbanUser' : 'banUser'}(${user.id})" style="padding:4px 8px;cursor:pointer;background:${user.is_banned ? '#4caf50' : '#ff5252'};color:#fff;border:none;border-radius:4px; margin-right:5px;">
+                        <button onclick="${user.is_banned ? 'unbanUser' : 'banUser'}(${parseInt(user.id, 10) || 0})" style="padding:4px 8px;cursor:pointer;background:${user.is_banned ? '#4caf50' : '#ff5252'};color:#fff;border:none;border-radius:4px; margin-right:5px;">
                             ${user.is_banned ? 'Unban' : 'Ban'}
                         </button>
                         ` : ''}
-                        <button onclick="openUserComments(${user.id}, 1)" style="padding:4px 8px;cursor:pointer;background:#1a73e8;color:#fff;border:none;border-radius:4px;">
+                        <button onclick="openUserComments(${parseInt(user.id, 10) || 0}, 1)" style="padding:4px 8px;cursor:pointer;background:#1a73e8;color:#fff;border:none;border-radius:4px;">
                             Comments
                         </button>
                     </div>

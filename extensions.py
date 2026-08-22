@@ -68,9 +68,10 @@ oauth.register(
 )
 
 def get_client_ip():
-    if 'X-Forwarded-For' in request.headers:
-        return request.headers['X-Forwarded-For'].split(',')[0].strip()
-    return request.remote_addr or ''
+    # CF-Connecting-IP is set by Cloudflare at the edge and cannot be spoofed
+    # by the client (any client-supplied X-Forwarded-For value is overwritten).
+    # Fall back to remote_addr, which ProxyFix resolves from the trusted proxy.
+    return request.headers.get('CF-Connecting-IP') or request.remote_addr or ''
 
 def hash_ip(ip_address):
     return hashlib.sha256(ip_address.encode()).hexdigest()

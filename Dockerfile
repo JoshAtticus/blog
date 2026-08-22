@@ -28,6 +28,10 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p templates posts/assets
 
+# Run as an unprivileged user instead of root
+RUN useradd -m appuser
+USER appuser
+
 # Expose port 3001
 EXPOSE 3001
 

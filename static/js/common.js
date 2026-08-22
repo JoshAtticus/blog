@@ -10,6 +10,18 @@ window.addEventListener('scroll', () => {
 
 let currentUser = null;
 
+// Escape untrusted strings before inserting into innerHTML templates
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Only allow remote https avatar URLs; anything else falls back to the local default
+function safeAvatar(url) {
+  return typeof url === 'string' && url.startsWith('https://') ? url : '/assets/default-avatar.png';
+}
+
 async function checkAuthStatus() {
   try {
     const response = await fetch('/api/auth/status');
@@ -25,10 +37,12 @@ async function checkAuthStatus() {
       
       if (accountBtn) {
         accountBtn.innerHTML = `
-            <img src="${data.user.picture || '/assets/default-avatar.png'}" alt="${data.user.name}" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;">
-            ${data.user.name}
+            <img src="${escHtml(safeAvatar(data.user.picture))}" alt="${escHtml(data.user.name)}" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;">
+            ${escHtml(data.user.name)}
          `;
-        accountBtn.href = "/logout";
+        // Logout is a POST action now; the click handler below intercepts this
+        accountBtn.href = "#";
+        accountBtn.dataset.authAction = "logout";
         accountBtn.title = "Sign Out";
       }
 
@@ -37,8 +51,8 @@ async function checkAuthStatus() {
 
       if (userInfo) {
         userInfo.innerHTML = `
-          <img src="${data.user.picture || '/assets/default-avatar.png'}" alt="${data.user.name}" style="width: 24px; height: 24px; border-radius: 50%;">
-          <span>${data.user.name}</span>
+          <img src="${escHtml(safeAvatar(data.user.picture))}" alt="${escHtml(data.user.name)}" style="width: 24px; height: 24px; border-radius: 50%;">
+          <span>${escHtml(data.user.name)}</span>
         `;
       }
       
@@ -55,6 +69,7 @@ async function checkAuthStatus() {
             Sign In
          `;
         accountBtn.href = "/login";
+        accountBtn.dataset.authAction = "login";
       }
 
       if (commentForm) commentForm.style.display = 'none';
@@ -69,6 +84,21 @@ async function checkAuthStatus() {
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
+
+    // Logout via POST /logout (the GET route was removed to prevent CSRF logout)
+    const accountBtn = document.getElementById('account-btn');
+    if (accountBtn) {
+      accountBtn.addEventListener('click', async (e) => {
+        if (accountBtn.dataset.authAction !== 'logout') return; // fall through to /login href
+        e.preventDefault();
+        try {
+          await fetch('/logout', { method: 'POST' });
+        } catch (err) {
+          console.error('Logout failed:', err);
+        }
+        window.location.href = '/';
+      });
+    }
 });
 
 // External Link Interceptor

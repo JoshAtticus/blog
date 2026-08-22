@@ -62,7 +62,7 @@ def get_ip_type(ip):
     if not IPHUB_KEY:
         return -1
     try:
-        resp = requests.get(f'http://v2.api.iphub.info/ip/{ip}', headers={'X-Key': IPHUB_KEY}, timeout=3)
+        resp = requests.get(f'https://v2.api.iphub.info/ip/{ip}', headers={'X-Key': IPHUB_KEY}, timeout=3)
         if resp.status_code == 200:
             return resp.json().get('block', -1)
     except:
@@ -80,7 +80,7 @@ def stream_heavy_block(ip, db_id):
         
         if (current_type == -1 or current_type is None) and IPHUB_KEY:
             try:
-                r = requests.get(f"http://v2.api.iphub.info/ip/{ip}", headers={"X-Key": IPHUB_KEY}, timeout=3)
+                r = requests.get(f"https://v2.api.iphub.info/ip/{ip}", headers={"X-Key": IPHUB_KEY}, timeout=3)
                 if r.status_code == 200:
                     ctype = r.json().get('block')
                     cursor.execute('UPDATE blocked_ips SET ip_type = ? WHERE id = ?', (ctype, db_id))
@@ -242,7 +242,8 @@ def honeypot_finalize():
     
     full_log = {
         'client_fingerprint': client_data,
-        'cookies': dict(request.cookies),
+        # Intentionally not logging cookies: they can contain benign visitors'
+        # session data and there's no need to persist it.
         'server_timestamp': datetime.now(timezone.utc).isoformat(),
         'tracking_id': tracking_id
     }

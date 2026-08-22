@@ -1,8 +1,15 @@
+import os
 import sqlite3
 from datetime import datetime, timezone
 from flask import Blueprint, redirect, url_for, request, session, jsonify, render_template
 from extensions import oauth, DB_PATH
 from db_helpers import get_current_user
+
+# Hardcoded admin identity (provider-agnostic OAuth id). Set ADMIN_OAUTH_ID in
+# the environment to the oauth_id that should be granted admin on first login.
+# Never grant admin based on user count: on a fresh database the first
+# *attacker* to sign in would otherwise become admin.
+ADMIN_OAUTH_ID = os.environ.get('ADMIN_OAUTH_ID')
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -26,7 +33,9 @@ def auth_callback(provider):
     try:
         token = client.authorize_access_token()
     except Exception as e:
-        return f"Authentication failed: {str(e)}", 400
+        # Log details server-side; never echo provider errors back to clients
+        print(f"OAuth callback error for {provider}: {e}")
+        return "Authentication failed. Please try again.", 400
         
     user_info = None
     oauth_id = None
@@ -88,10 +97,8 @@ def auth_callback(provider):
             UPDATE users SET email = ?, email_verified = ?, name = ?, picture = ? WHERE id = ?
         ''', (email, email_verified, name, picture, user_id))
     else:
-        # Check if this is the first user (make admin) (yes horribly insecure womp womp cry about it if anyone signs up before me i would just delete the database)
-        cursor.execute('SELECT COUNT(*) FROM users')
-        count = cursor.fetchone()[0]
-        is_admin = 1 if count == 0 else 0
+        # Grant admin only to the identity configured via ADMIN_OAUTH_ID
+        is_admin = 1 if (ADMIN_OAUTH_ID and str(oauth_id) == str(ADMIN_OAUTH_ID)) else 0
         
         cursor.execute('''
             INSERT INTO users (oauth_provider, oauth_id, email, email_verified, name, picture, is_admin, created_at)
@@ -102,12 +109,16 @@ def auth_callback(provider):
     conn.commit()
     conn.close()
     
+    # Clear any pre-existing session data before binding the session to this
+    # user (mitigates session fixation).
+    session.clear()
     session['user_id'] = user_id
     return redirect('/')
 
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None)
+    # POST-only so a cross-site <img>/link can't log users out (CSRF logout)
+    session.clear()
     return redirect('/')
 
 @auth_bp.route('/api/auth/status')

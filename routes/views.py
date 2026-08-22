@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, render_template, make_response, redirect, url_for
 from feedgen.feed import FeedGenerator
-from extensions import get_client_ip, hash_ip, cache
+from extensions import get_client_ip, hash_ip, cache, is_local
 from db_helpers import (
     get_view_count, get_shares_count, check_ip_rate_limit, 
     has_user_viewed, increment_view_count, increment_shares_count, log_analytics_view,
@@ -63,7 +63,7 @@ def post(slug):
     
     response = make_response(render_template('post.html', post=post_item, year=datetime.now().year, url=post_url, absolute_image_url=absolute_image_url, view_count=view_count, shares_count=shares_count))
     if not platform and not request.cookies.get('blog_user_id'):
-        response.set_cookie('blog_user_id', user_id, expires=datetime.now() + timedelta(days=365), httponly=True, samesite='Lax')
+        response.set_cookie('blog_user_id', user_id, expires=datetime.now() + timedelta(days=365), httponly=True, samesite='Lax', secure=not is_local)
     return response
 
 @views_bp.route('/bot')
