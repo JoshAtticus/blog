@@ -28,8 +28,12 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p templates posts/assets
 
-# Run as an unprivileged user instead of root
-RUN useradd -m appuser
+# Run as an unprivileged user instead of root.
+# /app must be writable by appuser: the app writes blog.db (SQLite WAL) and
+# creates the flask_cache directory at startup.
+RUN useradd -m appuser \
+    && mkdir -p /app/flask_cache \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Expose port 3001
