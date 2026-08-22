@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libjpeg-dev \
     zlib1g-dev \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better layer caching
@@ -28,13 +29,12 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p templates posts/assets
 
-# Run as an unprivileged user instead of root.
-# /app must be writable by appuser: the app writes blog.db (SQLite WAL) and
-# creates the flask_cache directory at startup.
-RUN useradd -m appuser \
-    && mkdir -p /app/flask_cache \
-    && chown -R appuser:appuser /app
-USER appuser
+# Entrypoint: fix ownership of writable paths AT STARTUP (this runs after any
+# bind mounts/volumes are attached, so root-owned mounted blog.db files get
+# corrected), then drop privileges so gunicorn itself never runs as root.
+RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/flask_cache\nchown -R appuser:appuser /app\nexec gosu appuser "$@"\n' > /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Expose port 3001
 EXPOSE 3001
