@@ -3,6 +3,7 @@ title: To nobody's surprise, Compressor is STILL the fastest Android video compr
 date: 2026-08-28
 tags: General, Software, Android, Video, Compressor, Development, Creative Tools, Tech
 summary: Competitors have had just over 7 months to respond to Compressor, which now has almost 100,000 downloads, but after all this time, they still haven't improved.
+wasteof_link: https://wasteof.money/posts/6a9119012f994596b28ada7f
 ---
 
 ![Nothing but the finest MS Paint art](assets/2026-08-28-compressor-is-still-the-fastest/hero.png)
