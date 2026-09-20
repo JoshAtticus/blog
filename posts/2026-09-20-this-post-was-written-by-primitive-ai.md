@@ -3,6 +3,7 @@ title: This post was written by a primitive LLM
 date: 2026-09-20
 tags: General, AI, Software, Old, Off-topic
 summary: Modern LLMs are stinky and controversial, so why care about those when GPT-2 can replace my blog with My new phone is an IPS panel, not a Galaxy S9 or S10, a 5MP Sony sensor phone from January 2014. Speaking of which, why did you just send me this? Because I actually really fucking love my Pixel 8 Pro.
+wasteof_link: https://wasteof.money/posts/6aafa8782f994596b28aeab8
 ---
 
 ![low quality photo of the Day: Wear OS 10 Day One Video by Tengry & Tikkun Hi everyone! Recently, I acquired a very strange device: the Samsung](assets/2026-09-20-this-post-was-written-by-primitive-ai/hero.png)
