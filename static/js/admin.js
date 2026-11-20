@@ -735,15 +735,15 @@ async function loadBlockedIPs(page) {
         
         const tbody = document.getElementById('blocked-ips-list');
         tbody.innerHTML = data.blocked_ips.map(ip => `
-            <tr onclick="showBlockedDetails(${ip.id})">
-                <td>${ip.id}</td>
-                <td title="${ip.user_agent || ''}">${ip.ip_address}</td>
-                <td>${ip.country || '-'}</td>
-                <td>${ip.reason}</td>
-                <td>${new Date(ip.blocked_until).toLocaleString()}</td>
-                <td>${new Date(ip.created_at).toLocaleString()}</td>
+            <tr onclick="showBlockedDetails(${Number(ip.id)})">
+                <td>${escHtml(ip.id)}</td>
+                <td title="${escHtml(ip.user_agent || '')}">${escHtml(ip.ip_address)}</td>
+                <td>${escHtml(ip.country || '-')}</td>
+                <td>${escHtml(ip.reason)}</td>
+                <td>${escHtml(new Date(ip.blocked_until).toLocaleString())}</td>
+                <td>${escHtml(new Date(ip.created_at).toLocaleString())}</td>
                 <td>
-                    <button onclick="event.stopPropagation(); unblockIP(${ip.id})" style="background:#ff5252;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Unblock</button>
+                    <button onclick="event.stopPropagation(); unblockIP(${Number(ip.id)})" style="background:#ff5252;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Unblock</button>
                 </td>
             </tr>
         `).join('');
@@ -791,22 +791,22 @@ async function showBlockedDetails(id) {
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
             <div>
                 <h3>Network Info</h3>
-                <p><strong>IP:</strong> ${ip.ip_address}</p>
-                <p><strong>User Agent:</strong> <span style="font-family:monospace;font-size:0.8rem;color:#aaa;">${ip.user_agent || 'N/A'}</span></p>
-                <p><strong>Country:</strong> ${ip.country || 'N/A'}</p>
-                <p><strong>Blocked Util:</strong> ${new Date(ip.blocked_until).toLocaleDateString()}</p>
-                <p><strong>Reason:</strong> ${ip.reason}</p>
+                <p><strong>IP:</strong> ${escHtml(ip.ip_address)}</p>
+                <p><strong>User Agent:</strong> <span style="font-family:monospace;font-size:0.8rem;color:#aaa;">${escHtml(ip.user_agent || 'N/A')}</span></p>
+                <p><strong>Country:</strong> ${escHtml(ip.country || 'N/A')}</p>
+                <p><strong>Blocked Util:</strong> ${escHtml(new Date(ip.blocked_until).toLocaleDateString())}</p>
+                <p><strong>Reason:</strong> ${escHtml(ip.reason)}</p>
             </div>
             <div>
                 <h3>Device Fingerprint</h3>
                 ${analysis.fingerprint_hash ? `
                     <div style="background:#252525; padding:1rem; border-radius:4px; margin-bottom:1rem;">
                         <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.5rem;">FINGERPRINT HASH</div>
-                        <div style="font-family:monospace;word-break:break-all;color:#4caf50;">${analysis.fingerprint_hash}</div>
+                        <div style="font-family:monospace;word-break:break-all;color:#4caf50;">${escHtml(analysis.fingerprint_hash)}</div>
                     </div>
-                    <p><strong>Screen:</strong> ${details.screen_res || 'Unknown'}</p>
-                    <p><strong>Timezone:</strong> ${details.timezone || 'Unknown'}</p>
-                    <p><strong>Shared Count:</strong> <strong style="color:${related.length > 0 ? '#ff5252' : '#4caf50'}">${related.length + 1} IPs</strong> with this fingerprint</p>
+                    <p><strong>Screen:</strong> ${escHtml(details.screen_res || 'Unknown')}</p>
+                    <p><strong>Timezone:</strong> ${escHtml(details.timezone || 'Unknown')}</p>
+                    <p><strong>Shared Count:</strong> <strong style="color:${related.length > 0 ? '#ff5252' : '#4caf50'}">${Number(related.length) + 1} IPs</strong> with this fingerprint</p>
                 ` : `<p style="color:#aaa;">No fingerprint data captured.</p>`}
             </div>
         </div>
@@ -819,8 +819,8 @@ async function showBlockedDetails(id) {
                 <tbody>
                     ${related.map(r => `
                         <tr>
-                            <td style="font-family:monospace;">${r.ip}</td>
-                            <td>${new Date(r.date || r.created_at).toLocaleString()}</td>
+                            <td style="font-family:monospace;">${escHtml(r.ip)}</td>
+                            <td>${escHtml(new Date(r.date || r.created_at).toLocaleString())}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -830,7 +830,7 @@ async function showBlockedDetails(id) {
         <hr style="border-color:#333; margin: 2rem 0;">
         <details>
             <summary style="cursor:pointer;color:#aaa;">Raw Data Payload</summary>
-            <pre style="background:#000; padding:1rem; border-radius:4px; overflow-x:auto; color:#4a9eff; margin-top:1rem;">${JSON.stringify(extra, null, 2)}</pre>
+            <pre style="background:#000; padding:1rem; border-radius:4px; overflow-x:auto; color:#4a9eff; margin-top:1rem;">${escHtml(JSON.stringify(extra, null, 2))}</pre>
         </details>
     `;
     
@@ -872,8 +872,8 @@ async function loadInvoicing(page = 1) {
         if (tbody) {
             tbody.innerHTML = data.invoices.map(inv => `
                 <tr>
-                    <td style="font-family:monospace;">${inv.ip}</td>
-                    <td><span class="status-badge ${inv.is_residential ? 'status-verified' : 'status-unverified'}">${inv.type}</span></td>
+                    <td style="font-family:monospace;">${escHtml(inv.ip)}</td>
+                    <td><span class="status-badge ${inv.is_residential ? 'status-verified' : 'status-unverified'}">${escHtml(inv.type)}</span></td>
                     <td>${inv.data_gb.toFixed(4)} GB</td>
                     <td>$${inv.cost_low.toFixed(4)}</td>
                     <td>$${inv.cost_high.toFixed(4)}</td>
@@ -934,9 +934,9 @@ async function lookupIp() {
                         <ul style="padding-left:1.2rem; color:#aaa;">
                             ${data.history.map(h => `
                                 <li>
-                                    ${new Date(h.created_at).toLocaleDateString()} - 
-                                    ${h.reason} 
-                                    ( until ${new Date(h.blocked_until).toLocaleDateString()} )
+                                    ${escHtml(new Date(h.created_at).toLocaleDateString())} - 
+                                    ${escHtml(h.reason)} 
+                                    ( until ${escHtml(new Date(h.blocked_until).toLocaleDateString())} )
                                 </li>
                             `).join('')}
                         </ul>
@@ -952,7 +952,7 @@ async function lookupIp() {
                         ${data.cache_status ? '<span style="font-size:0.8rem; background:#444; padding:2px 6px; border-radius:4px;">In Cache</span>' : ''}
                     </div>
                     <div>
-                        <button onclick="manageIp('${ip}', 'unblock')" style="background:var(--success);">Unblock & Purge</button>
+                        <button id="ip-lookup-action" style="background:var(--success);">Unblock & Purge</button>
                     </div>
                 </div>
                 ${historyHtml}
@@ -965,13 +965,15 @@ async function lookupIp() {
                         <p style="margin:0.5rem 0;">This IP is not currently blocked.</p>
                     </div>
                     <div>
-                        <button onclick="manageIp('${ip}', 'block')" style="background:var(--danger);">Block Permanently</button>
+                        <button id="ip-lookup-action" style="background:var(--danger);">Block Permanently</button>
                     </div>
                 </div>
             `;
         }
+        const action = data.is_blocked ? 'unblock' : 'block';
+        document.getElementById('ip-lookup-action').addEventListener('click', () => manageIp(ip, action));
     } catch(err) {
-        resultDiv.innerHTML = `<span style="color:red">Error searching IP: ${err.message}</span>`;
+        resultDiv.innerHTML = `<span style="color:red">Error searching IP: ${escHtml(err.message)}</span>`;
     }
 }
 
